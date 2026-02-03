@@ -3,14 +3,15 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ProductsService } from '../../services/products.service';
 import { Product } from '../../models/product.model';
+import { AuthService } from '../../../../core/services/auth.service';
 import Swal from 'sweetalert2';
 import { switchMap, of } from 'rxjs';
 
 @Component({
-    selector: 'app-product-modal',
-    standalone: true,
-    imports: [CommonModule, ReactiveFormsModule],
-    template: `
+  selector: 'app-product-modal',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule],
+  template: `
     @if (isOpen) {
       <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5)">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -64,94 +65,110 @@ import { switchMap, of } from 'rxjs';
   `
 })
 export class ProductModalComponent implements OnChanges {
-    @Input() product: Product | null = null;
-    @Input() isOpen = false;
-    @Output() close = new EventEmitter<boolean>();
+  @Input() product: Product | null = null;
+  @Input() isOpen = false;
+  @Output() close = new EventEmitter<boolean>();
 
-    private fb = inject(FormBuilder);
-    private productService = inject(ProductsService);
+  private fb = inject(FormBuilder);
+  private productService = inject(ProductsService);
+  private authService = inject(AuthService); // Inject Auth
 
-    productForm: FormGroup = this.fb.group({
-        name: ['', Validators.required],
-        description: [''],
-        price: [0, [Validators.required, Validators.min(0)]],
-        stock: [0, [Validators.required, Validators.min(0)]]
-    });
+  productForm: FormGroup = this.fb.group({
+    name: ['', Validators.required],
+    description: [''],
+    price: [0, [Validators.required, Validators.min(0)]],
+    stock: [0, [Validators.required, Validators.min(0)]]
+  });
 
-    selectedFiles: File[] = [];
+  selectedFiles: File[] = [];
 
-    ngOnChanges(changes: SimpleChanges) {
-        if (changes['product'] && this.product) {
-            this.productForm.patchValue(this.product);
-        } else if (changes['isOpen'] && this.isOpen && !this.product) {
-            this.productForm.reset({ price: 0, stock: 0 });
-            this.selectedFiles = [];
-        }
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['product'] && this.product) {
+      this.productForm.patchValue(this.product);
+    } else if (changes['isOpen'] && this.isOpen && !this.product) {
+      this.productForm.reset({ price: 0, stock: 0 });
+      this.selectedFiles = [];
+    }
+  }
+
+  isFieldInvalid(field: string): boolean {
+    const control = this.productForm.get(field);
+    return !!(control && control.invalid && (control.dirty || control.touched));
+  }
+
+  onFileSelected(event: any) {
+    if (event.target.files) {
+      this.selectedFiles = Array.from(event.target.files);
+    }
+  }
+
+  save() {
+    if (this.productForm.invalid) {
+      this.productForm.markAllAsTouched();
+      return;
     }
 
-    isFieldInvalid(field: string): boolean {
-        const control = this.productForm.get(field);
-        return !!(control && control.invalid && (control.dirty || control.touched));
+    const user = this.authService.currentUser();
+    if (!user && !this.product) {
+      Swal.fire('Erro', 'Usuário não autenticado.', 'error');
+      return;
     }
 
-    onFileSelected(event: any) {
-        if (event.target.files) {
-            this.selectedFiles = Array.from(event.target.files);
-        }
+    const formValue = this.productForm.value;
+    const dto = {
+      ...formValue,
+      createdById: user?.sub
+    };
+
+    if (this.product) {
+      delete dto.createdById;
     }
 
-    save() {
-        if (this.productForm.invalid) {
-            this.productForm.markAllAsTouched();
-            return;
-        }
+    // Logic: Create/Update -> Then Upload Images if any
+    let request$;
 
-        const dto = this.productForm.value;
+    if (this.product) {
+      // Update
+      request$ = this.productService.updateProduct(this.product.id, dto).pipe(
+        switchMap((updatedProduct) => {
+          if (this.selectedFiles.length > 0) {
+            // Pass 'multiple' files
+            return this.productService.uploadImages(updatedProduct.id, this.selectedFiles);
+          }
+          return of(updatedProduct);
+        })
+      );
+    } else {
+      // Create
+      request$ = this.productService.createProduct(dto).pipe(
+        switchMap((newProduct) => {
+          if (this.selectedFiles.length > 0) {
+            return this.productService.uploadImages(newProduct.id, this.selectedFiles);
+          }
+          return of(newProduct);
+        })
+      );
+    }
 
-        // Logic: Create/Update -> Then Upload Images if any
-        let request$;
-
-        if (this.product) {
-            // Update
-            request$ = this.productService.updateProduct(this.product.id, dto).pipe(
-                switchMap((updatedProduct) => {
-                    if (this.selectedFiles.length > 0) {
-                        return this.productService.uploadImages(updatedProduct.id, this.selectedFiles);
-                    }
-                    return of(updatedProduct);
-                })
-            );
-        } else {
-            // Create
-            request$ = this.productService.createProduct(dto).pipe(
-                switchMap((newProduct) => {
-                    if (this.selectedFiles.length > 0) {
-                        return this.productService.uploadImages(newProduct.id, this.selectedFiles);
-                    }
-                    return of(newProduct);
-                })
-            );
-        }
-
-        request$.subscribe({
-            next: () => {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Sucesso!',
-                    text: 'Produto salvo com sucesso.',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
-                this.close.emit(true);
-            },
-            error: (err) => {
-                Swal.fire('Erro', 'Ocorreu um erro ao salvar.', 'error');
-                console.error(err);
-            }
+    request$.subscribe({
+      next: () => {
+        Swal.fire({
+          icon: 'success',
+          title: 'Sucesso!',
+          text: 'Produto salvo com sucesso.',
+          timer: 1500,
+          showConfirmButton: false
         });
-    }
+        this.close.emit(true);
+      },
+      error: (err) => {
+        Swal.fire('Erro', 'Ocorreu um erro ao salvar.', 'error');
+        console.error(err);
+      }
+    });
+  }
 
-    closeModal() {
-        this.close.emit(false);
-    }
+  closeModal() {
+    this.close.emit(false);
+  }
 }

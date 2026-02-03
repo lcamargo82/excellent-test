@@ -69,8 +69,16 @@ export class ProductsController {
     }))
     @ApiOperation({ summary: 'Upload product images (Admin only)' })
     async uploadImages(@Param('id', ParseUUIDPipe) id: string, @UploadedFiles() files: Array<Express.Multer.File>) {
-        // Implementation note: The service needs to handle saving the image record in DB
-        // For now, we return the paths. Ideally, call productsService.addImages(id, paths)
-        return { message: 'Images uploaded (Implementation pending service update)', files };
+        if (!files || files.length === 0) {
+            return { message: 'No files uploaded' };
+        }
+
+        const urls = files.map(file => `/uploads/products/${file.filename}`);
+        const product = await this.productsService.addImages(id, urls);
+
+        return {
+            message: `${urls.length} images uploaded successfully`,
+            product
+        };
     }
 }

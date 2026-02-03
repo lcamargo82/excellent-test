@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ClientsService } from '../../services/clients.service';
 import { Client } from '../../models/client.model';
+import { AuthService } from '../../../../core/services/auth.service';
 import Swal from 'sweetalert2';
 
 @Component({
-    selector: 'app-client-modal',
-    standalone: true,
-    imports: [CommonModule, ReactiveFormsModule],
-    template: `
+  selector: 'app-client-modal',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule],
+  template: `
     @if (isOpen) {
       <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5)">
         <div class="modal-dialog modal-dialog-centered">
@@ -58,63 +59,82 @@ import Swal from 'sweetalert2';
   `
 })
 export class ClientModalComponent implements OnChanges {
-    @Input() client: Client | null = null;
-    @Input() isOpen = false;
-    @Output() close = new EventEmitter<boolean>();
+  @Input() client: Client | null = null;
+  @Input() isOpen = false;
+  @Output() close = new EventEmitter<boolean>();
 
-    private fb = inject(FormBuilder);
-    private clientService = inject(ClientsService);
+  private fb = inject(FormBuilder);
+  private authService = inject(AuthService); // Inject Auth
 
-    clientForm: FormGroup = this.fb.group({
-        name: ['', Validators.required],
-        email: ['', [Validators.required, Validators.email]],
-        phone: [''],
-        cpf: ['']
-    });
+  private clientService = inject(ClientsService);
 
-    ngOnChanges(changes: SimpleChanges) {
-        if (changes['client'] && this.client) {
-            this.clientForm.patchValue(this.client);
-        } else if (changes['isOpen'] && this.isOpen && !this.client) {
-            this.clientForm.reset();
-        }
+  clientForm: FormGroup = this.fb.group({
+    name: ['', Validators.required],
+    email: ['', [Validators.required, Validators.email]],
+    phone: [''],
+    cpf: ['']
+  });
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['client'] && this.client) {
+      this.clientForm.patchValue(this.client);
+    } else if (changes['isOpen'] && this.isOpen && !this.client) {
+      this.clientForm.reset();
+    }
+  }
+
+  isFieldInvalid(field: string): boolean {
+    const control = this.clientForm.get(field);
+    return !!(control && control.invalid && (control.dirty || control.touched));
+  }
+
+  save() {
+    if (this.clientForm.invalid) {
+      this.clientForm.markAllAsTouched();
+      return;
     }
 
-    isFieldInvalid(field: string): boolean {
-        const control = this.clientForm.get(field);
-        return !!(control && control.invalid && (control.dirty || control.touched));
+    const formValue = this.clientForm.value;
+    const user = this.authService.currentUser();
+
+    if (!user && !this.client) {
+      Swal.fire('Erro', 'Usuário não autenticado.', 'error');
+      return;
     }
 
-    save() {
-        if (this.clientForm.invalid) {
-            this.clientForm.markAllAsTouched();
-            return;
-        }
+    const dto = {
+      ...formValue,
+      createdById: user?.sub // Add ID
+    };
 
-        const dto = this.clientForm.value;
-        const request$ = this.client ?
-            this.clientService.updateClient(this.client.id, dto) :
-            this.clientService.createClient(dto);
+    // Remove createdById if updating (Backend handles it, or ignores)
+    if (this.client) {
+      delete dto.createdById;
+    }
 
-        request$.subscribe({
-            next: () => {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Sucesso!',
-                    text: 'Dados salvos com sucesso.',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
-                this.close.emit(true);
-            },
-            error: (err) => {
-                Swal.fire('Erro', 'Ocorreu um erro ao salvar.', 'error');
-                console.error(err);
-            }
+    const request$ = this.client ?
+      this.clientService.updateClient(this.client.id, formValue) : // Update excludes createdById usually
+      this.clientService.createClient(dto);
+
+    request$.subscribe({
+      next: () => {
+        Swal.fire({
+          icon: 'success',
+          title: 'Sucesso!',
+          text: 'Dados salvos com sucesso.',
+          timer: 1500,
+          showConfirmButton: false
         });
-    }
+        this.close.emit(true);
+      },
+      error: (err) => {
+        Swal.fire('Erro', err.error?.message || 'Ocorreu um erro ao salvar.', 'error');
+        console.error(err);
+      }
+    });
+  }
 
-    closeModal() {
-        this.close.emit(false);
-    }
+  closeModal() {
+    this.close.emit(false);
+  }
 }

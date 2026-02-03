@@ -35,7 +35,7 @@ import { OrderModalComponent } from '../order-modal/order-modal.component'; // R
                 @for (order of orders(); track order.id) {
                   <tr>
                     <td class="ps-4 text-muted small">#{{ order.id.substring(0, 8) }}</td>
-                    <td class="fw-bold text-dark">{{ order.client?.name || 'Cliente Removido' }}</td>
+                    <td class="fw-bold text-dark">{{ order.client.name }}</td>
                     <td class="fw-bold">{{ order.total | currency:'BRL' }}</td>
                     <td>
                       <span class="badge rounded-pill" 

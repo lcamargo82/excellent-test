@@ -14,6 +14,8 @@ async function bootstrap() {
     prefix: '/uploads/',
   });
 
+  app.setGlobalPrefix('api');
+
   // Enable Versioning
   app.enableVersioning({
     type: VersioningType.URI,
