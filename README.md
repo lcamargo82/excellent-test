@@ -56,6 +56,16 @@ Altere `command: tail -f /dev/null` para `command: npm run start:dev`
 **Frontend:**
 Altere `command: tail -f /dev/null` para `command: ng serve --host 0.0.0.0`
 
+## Documentação da API (Swagger)
+
+A documentação interativa da API está disponível via Swagger UI.
+
+Para acessar, certifique-se de que o servidor backend está rodando e acesse:
+
+`http://localhost:3000/api`
+
+Nesta interface, você pode testar todos os endpoints, ver os schemas de dados e autenticar (botão **Authorize**) usando o token JWT obtido no login.
+
 ## Banco de Dados (PostgreSQL)
 
 O banco de dados PostgreSQL está acessível na porta `5432`.
