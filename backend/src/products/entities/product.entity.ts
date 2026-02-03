@@ -29,6 +29,10 @@ export class Product {
     @Column({ type: 'decimal', precision: 10, scale: 2 })
     price: number;
 
+    @ApiProperty({ example: 100 })
+    @Column({ type: 'int', default: 0 })
+    stock: number;
+
     @ApiProperty({ type: () => User })
     @ManyToOne(() => User)
     @JoinColumn({ name: 'created_by' })
