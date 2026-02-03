@@ -2,13 +2,13 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { UsersService } from '../../services/users.service';
 import { User } from '../../models/user.model';
-import { UserModalComponent } from '../user-modal/user-modal.component';
+import { UserModalComponent } from '../user-modal/user-modal.component'; // Refresh import
 
 @Component({
-    selector: 'app-user-list',
-    standalone: true,
-    imports: [CommonModule, UserModalComponent],
-    template: `
+  selector: 'app-user-list',
+  standalone: true,
+  imports: [CommonModule, UserModalComponent],
+  template: `
     <div class="container mt-5 animate__animated animate__fadeIn">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="text-primary fw-bold"><i class="bi bi-person-gear me-2"></i> Usuários</h2>
@@ -69,39 +69,39 @@ import { UserModalComponent } from '../user-modal/user-modal.component';
   `
 })
 export class UserListComponent implements OnInit {
-    private usersService = inject(UsersService);
+  private usersService = inject(UsersService);
 
-    users = signal<User[]>([]);
+  users = signal<User[]>([]);
 
-    isModalOpen = signal<boolean>(false);
-    selectedUser = signal<User | null>(null);
+  isModalOpen = signal<boolean>(false);
+  selectedUser = signal<User | null>(null);
 
-    ngOnInit() {
-        this.loadUsers();
+  ngOnInit() {
+    this.loadUsers();
+  }
+
+  loadUsers() {
+    this.usersService.getUsers().subscribe({
+      next: (data) => this.users.set(data),
+      error: (err) => console.error(err)
+    });
+  }
+
+  openModal() {
+    this.selectedUser.set(null);
+    this.isModalOpen.set(true);
+  }
+
+  editUser(user: User) {
+    this.selectedUser.set(user);
+    this.isModalOpen.set(true);
+  }
+
+  closeModal(saved: boolean) {
+    this.isModalOpen.set(false);
+    this.selectedUser.set(null);
+    if (saved) {
+      this.loadUsers();
     }
-
-    loadUsers() {
-        this.usersService.getUsers().subscribe({
-            next: (data) => this.users.set(data),
-            error: (err) => console.error(err)
-        });
-    }
-
-    openModal() {
-        this.selectedUser.set(null);
-        this.isModalOpen.set(true);
-    }
-
-    editUser(user: User) {
-        this.selectedUser.set(user);
-        this.isModalOpen.set(true);
-    }
-
-    closeModal(saved: boolean) {
-        this.isModalOpen.set(false);
-        this.selectedUser.set(null);
-        if (saved) {
-            this.loadUsers();
-        }
-    }
+  }
 }

@@ -2,13 +2,13 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { OrdersService } from '../../services/orders.service';
 import { Order } from '../../models/order.model';
-import { OrderModalComponent } from '../order-modal/order-modal.component';
+import { OrderModalComponent } from '../order-modal/order-modal.component'; // Refresh import
 
 @Component({
-    selector: 'app-order-list',
-    standalone: true,
-    imports: [CommonModule, OrderModalComponent],
-    template: `
+  selector: 'app-order-list',
+  standalone: true,
+  imports: [CommonModule, OrderModalComponent],
+  template: `
     <div class="container mt-5 animate__animated animate__fadeIn">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="text-primary fw-bold"><i class="bi bi-cart-fill me-2"></i> Pedidos</h2>
@@ -90,47 +90,47 @@ import { OrderModalComponent } from '../order-modal/order-modal.component';
   `
 })
 export class OrderListComponent implements OnInit {
-    private ordersService = inject(OrdersService);
+  private ordersService = inject(OrdersService);
 
-    orders = signal<Order[]>([]);
-    currentPage = signal<number>(1);
-    lastPage = signal<number>(1);
-    totalItems = signal<number>(0);
+  orders = signal<Order[]>([]);
+  currentPage = signal<number>(1);
+  lastPage = signal<number>(1);
+  totalItems = signal<number>(0);
 
-    isModalOpen = signal<boolean>(false);
-    selectedOrder = signal<Order | null>(null);
+  isModalOpen = signal<boolean>(false);
+  selectedOrder = signal<Order | null>(null);
 
-    ngOnInit() {
-        this.loadOrders();
+  ngOnInit() {
+    this.loadOrders();
+  }
+
+  loadOrders(page: number = 1) {
+    this.ordersService.getOrders(page).subscribe({
+      next: (res) => {
+        this.orders.set(res.data);
+        this.currentPage.set(res.page);
+        this.totalItems.set(res.total);
+        this.lastPage.set(res.lastPage);
+      },
+      error: (err) => console.error(err)
+    });
+  }
+
+  openModal() {
+    this.selectedOrder.set(null); // Create mode
+    this.isModalOpen.set(true);
+  }
+
+  viewOrder(order: Order) {
+    this.selectedOrder.set(order); // View mode - Modal needs to handle Read-Only
+    this.isModalOpen.set(true);
+  }
+
+  closeModal(saved: boolean) {
+    this.isModalOpen.set(false);
+    this.selectedOrder.set(null);
+    if (saved) {
+      this.loadOrders(this.currentPage());
     }
-
-    loadOrders(page: number = 1) {
-        this.ordersService.getOrders(page).subscribe({
-            next: (res) => {
-                this.orders.set(res.data);
-                this.currentPage.set(res.page);
-                this.totalItems.set(res.total);
-                this.lastPage.set(res.lastPage);
-            },
-            error: (err) => console.error(err)
-        });
-    }
-
-    openModal() {
-        this.selectedOrder.set(null); // Create mode
-        this.isModalOpen.set(true);
-    }
-
-    viewOrder(order: Order) {
-        this.selectedOrder.set(order); // View mode - Modal needs to handle Read-Only
-        this.isModalOpen.set(true);
-    }
-
-    closeModal(saved: boolean) {
-        this.isModalOpen.set(false);
-        this.selectedOrder.set(null);
-        if (saved) {
-            this.loadOrders(this.currentPage());
-        }
-    }
+  }
 }
