@@ -32,7 +32,8 @@ import { ProductImage } from './products/entities/product-image.entity';
         username: configService.get<string>('POSTGRES_USER', 'admin'),
         password: configService.get<string>('POSTGRES_PASSWORD', 'admin'),
         database: configService.get<string>('POSTGRES_DB', 'excellent_db'),
-        entities: [User, ProductImage], // Register ProductImage
+        // entities: [User, ProductImage], 
+        autoLoadEntities: true,
         synchronize: false, // Using migrations
         logging: true,
       }),
