@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { User } from '@users/entities/user.entity';
@@ -9,12 +11,18 @@ import { AuthModule } from './auth/auth.module';
 import { ClientsModule } from './clients/clients.module';
 import { ProductsModule } from './products/products.module';
 import { OrdersModule } from './orders/orders.module';
+import { IntegrationsModule } from './integrations/integrations.module';
+import { ProductImage } from './products/entities/product-image.entity';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ThrottlerModule.forRoot([{
+      ttl: 60000,
+      limit: 100,
+    }]),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -24,7 +32,7 @@ import { OrdersModule } from './orders/orders.module';
         username: configService.get<string>('POSTGRES_USER', 'admin'),
         password: configService.get<string>('POSTGRES_PASSWORD', 'admin'),
         database: configService.get<string>('POSTGRES_DB', 'excellent_db'),
-        entities: [User], // We will add User entity here
+        entities: [User, ProductImage], // Register ProductImage
         synchronize: false, // Using migrations
         logging: true,
       }),
@@ -36,8 +44,15 @@ import { OrdersModule } from './orders/orders.module';
     ClientsModule,
     ProductsModule,
     OrdersModule,
+    IntegrationsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule { }

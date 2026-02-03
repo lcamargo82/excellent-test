@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseUUIDPipe, Query } from '@nestjs/common';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @ApiTags('clients')
 @ApiBearerAuth()
@@ -21,8 +22,9 @@ export class ClientsController {
 
     @Get()
     @ApiOperation({ summary: 'List all clients' })
-    findAll() {
-        return this.clientsService.findAll();
+    @ApiResponse({ status: 200, description: 'Return all clients.' })
+    findAll(@Query() paginationDto: PaginationDto) {
+        return this.clientsService.findAll(paginationDto);
     }
 
     @Get(':id')

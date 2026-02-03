@@ -4,7 +4,8 @@ import { Repository } from 'typeorm';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 import { Client } from './entities/client.entity';
-import { User } from '@users/entities/user.entity';
+import { User } from '../users/entities/user.entity';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Injectable()
 export class ClientsService {
@@ -31,8 +32,14 @@ export class ClientsService {
         return this.clientsRepository.save(client);
     }
 
-    async findAll(): Promise<Client[]> {
-        return this.clientsRepository.find({ relations: ['created_by'] });
+    async findAll(paginationDto: PaginationDto): Promise<{ data: Client[], total: number, page: number, limit: number }> {
+        const { page = 1, limit = 10 } = paginationDto;
+        const [data, total] = await this.clientsRepository.findAndCount({
+            skip: (page - 1) * limit,
+            take: limit,
+            relations: ['created_by'], // Added relations here to maintain previous behavior
+        });
+        return { data, total, page, limit };
     }
 
     async findOne(id: string): Promise<Client | null> {
