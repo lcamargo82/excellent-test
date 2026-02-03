@@ -31,4 +31,18 @@ export class UsersService {
     async findOne(id: string): Promise<User | null> {
         return this.usersRepository.findOneBy({ id });
     }
+
+    async findByEmail(email: string): Promise<User | null> {
+        return this.usersRepository.findOne({ where: { email }, select: ['id', 'email', 'password_hash', 'role', 'name'] });
+    }
+
+    async updateRole(id: string, role: string, adminUser: User): Promise<User> {
+        const user = await this.findOne(id);
+        if (!user) {
+            throw new Error(`User with ID ${id} not found`);
+        }
+        user.role = role;
+        user.updated_by_user = adminUser;
+        return this.usersRepository.save(user);
+    }
 }
