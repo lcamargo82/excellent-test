@@ -1,0 +1,96 @@
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.history/
+
+# IDE - JetBrains (IntelliJ, WebStorm, etc)
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# IDE - Cursor / Antigravity
+.cursor/
+.antigravity/
+.gemini/
+
+# Node.js / NPM / Yarn
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.yarn/
+
+# NestJS
+dist/
+build/
+*.tsbuildinfo
+
+# Angular
+.angular/
+.browserslistrc
+.editorconfig
+karma.conf.js
+polyfill.ts
+test.ts
+tsconfig.app.json
+tsconfig.spec.json
+src/favicon.ico
+src/index.html
+src/main.ts
+src/styles.css
+
+# Environment Variables
+.env
+.env.test
+.env.production
+.env.local
+
+# Docker
+docker-compose.override.yml
+
+# Postgres data (if mounted locally in root for some reason, though we use named volume usually)
+postgres_data/
+
+# Misc
+.sass-cache/
+connect.lock
+coverage/
+libpeerconnection.log
+testem.log
+typings/
