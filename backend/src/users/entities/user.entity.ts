@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 
 @Entity('users')
@@ -32,7 +32,17 @@ export class User {
     @Column({ type: 'timestamp', nullable: true })
     last_password_change: Date;
 
+    // Role
+    @ApiProperty({ example: 'USER', enum: ['ADMIN', 'USER'] })
+    @Column({ type: 'varchar', length: 20, default: 'USER' })
+    role: string;
+
     // Audit columns
+    @ApiProperty({ type: () => User })
+    @ManyToOne(() => User)
+    @JoinColumn({ name: 'updated_by' })
+    updated_by_user: User;
+
     @ApiProperty()
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
