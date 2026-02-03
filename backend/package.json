@@ -86,7 +86,8 @@
     "moduleNameMapper": {
       "^@src/(.*)$": "<rootDir>/$1",
       "^@users/(.*)$": "<rootDir>/users/$1",
-      "^@clients/(.*)$": "<rootDir>/clients/$1"
+      "^@clients/(.*)$": "<rootDir>/clients/$1",
+      "^@products/(.*)$": "<rootDir>/products/$1"
     }
   }
 }

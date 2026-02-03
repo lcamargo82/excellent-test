@@ -20,6 +20,12 @@
       ],
       "@users/*": [
         "src/users/*"
+      ],
+      "@clients/*": [
+        "src/clients/*"
+      ],
+      "@products/*": [
+        "src/products/*"
       ]
     },
     "incremental": true,

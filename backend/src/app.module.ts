@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { User } from '@users/entities/user.entity';
 import { UsersModule } from '@users/users.module';
 import { ClientsModule } from './clients/clients.module';
+import { ProductsModule } from './products/products.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { ClientsModule } from './clients/clients.module';
     TypeOrmModule.forFeature([User]), // Register User repository
     UsersModule,
     ClientsModule,
+    ProductsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
