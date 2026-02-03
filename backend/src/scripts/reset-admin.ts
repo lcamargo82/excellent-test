@@ -8,8 +8,8 @@ const dataSource = new DataSource({
     type: 'postgres',
     host: process.env.DB_HOST || 'postgres',
     port: 5432,
-    username: process.env.DB_USER || 'excellent_user',
-    password: process.env.DB_PASSWORD || 'excellent_pass',
+    username: process.env.DB_USER || 'admin',
+    password: process.env.DB_PASSWORD || 'admin',
     database: process.env.DB_NAME || 'excellent_db',
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
     synchronize: false,
@@ -21,21 +21,24 @@ async function run() {
 
     const repo = dataSource.getRepository(User);
     const email = 'admin@excellent.com';
-    const user = await repo.findOne({ where: { email } });
+    let user = await repo.findOne({ where: { email } });
 
-    if (user) {
-        const newPass = 'admin123';
-        const hash = await bcrypt.hash(newPass, 10);
-        user.password_hash = hash;
-        await repo.save(user);
-        console.log(`Password for ${email} reset to: ${newPass}`);
-    } else {
-        console.log(`User ${email} not found.`);
-        // Create if missing?
-        const newPass = 'admin123';
-        const hash = await bcrypt.hash(newPass, 10);
-        // ... (Simplified: assume exists based on migration)
+    if (!user) {
+        console.log(`User ${email} not found. Creating...`);
+        user = repo.create({
+            name: 'Admin User',
+            email: email,
+            role: 'ADMIN'
+        });
     }
+
+    const newPass = 'admin123';
+    const hash = await bcrypt.hash(newPass, 10);
+    user.password_hash = hash;
+
+    await repo.save(user);
+    console.log(`Password for ${email} reset to: ${newPass}`);
+    console.log(`Hash starts with: ${hash.substring(0, 10)}...`);
 
     await dataSource.destroy();
 }
