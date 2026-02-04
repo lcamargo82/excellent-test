@@ -1,21 +1,24 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ProductsService } from '../../services/products.service';
 import { Product } from '../../models/product.model';
+import { AuthService } from '../../../../core/services/auth.service';
 import Swal from 'sweetalert2';
 import { ProductModalComponent } from '../product-modal/product-modal.component';
 
 @Component({
-    selector: 'app-product-list',
-    standalone: true,
-    imports: [CommonModule, ProductModalComponent],
-    template: `
+  selector: 'app-product-list',
+  standalone: true,
+  imports: [CommonModule, ProductModalComponent],
+  template: `
     <div class="container mt-5 animate__animated animate__fadeIn">
       <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="text-primary fw-bold"><i class="bi bi-box-seam-fill me-2"></i> Produtos</h2>
-        <button class="btn btn-success shadow-sm" (click)="openModal()">
-          <i class="bi bi-plus-lg me-1"></i> Novo Produto
-        </button>
+        @if (isAdmin()) {
+          <button class="btn btn-success shadow-sm" (click)="openModal()">
+            <i class="bi bi-plus-lg me-1"></i> Novo Produto
+          </button>
+        }
       </div>
 
       <div class="card shadow border-0 rounded-3">
@@ -62,12 +65,18 @@ import { ProductModalComponent } from '../product-modal/product-modal.component'
                       </span>
                     </td>
                     <td class="text-end pe-4">
-                      <button class="btn btn-sm btn-outline-primary me-2" (click)="openModal(product)" title="Editar">
-                        <i class="bi bi-pencil"></i>
-                      </button>
-                      <button class="btn btn-sm btn-outline-danger" (click)="deleteProduct(product)" title="Excluir">
-                        <i class="bi bi-trash"></i>
-                      </button>
+                      @if (isAdmin()) {
+                        <button class="btn btn-sm btn-outline-primary me-2" (click)="openModal(product)" title="Editar">
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" (click)="deleteProduct(product)" title="Excluir">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                      } @else {
+                        <button class="btn btn-sm btn-outline-info" (click)="openModal(product)" title="Ver">
+                          <i class="bi bi-eye"></i>
+                        </button>
+                      }
                     </td>
                   </tr>
                 } @empty {
@@ -108,62 +117,64 @@ import { ProductModalComponent } from '../product-modal/product-modal.component'
   `
 })
 export class ProductListComponent implements OnInit {
-    private productService = inject(ProductsService);
+  private productService = inject(ProductsService);
+  private authService = inject(AuthService);
 
-    products = signal<Product[]>([]);
-    currentPage = signal<number>(1);
-    lastPage = signal<number>(1);
-    totalItems = signal<number>(0);
+  products = signal<Product[]>([]);
+  isAdmin = computed(() => this.authService.currentUser()?.role === 'ADMIN');
+  currentPage = signal<number>(1);
+  lastPage = signal<number>(1);
+  totalItems = signal<number>(0);
 
-    isModalOpen = signal<boolean>(false);
-    selectedProduct = signal<Product | null>(null);
+  isModalOpen = signal<boolean>(false);
+  selectedProduct = signal<Product | null>(null);
 
-    ngOnInit() {
-        this.loadProducts();
-    }
+  ngOnInit() {
+    this.loadProducts();
+  }
 
-    loadProducts(page: number = 1) {
-        this.productService.getProducts(page).subscribe({
-            next: (res) => {
-                this.products.set(res.data);
-                this.currentPage.set(res.page);
-                this.totalItems.set(res.total);
-                this.lastPage.set(res.lastPage);
-            },
-            error: (err) => console.error(err)
+  loadProducts(page: number = 1) {
+    this.productService.getProducts(page).subscribe({
+      next: (res) => {
+        this.products.set(res.data);
+        this.currentPage.set(res.page);
+        this.totalItems.set(res.total);
+        this.lastPage.set(res.lastPage);
+      },
+      error: (err) => console.error(err)
+    });
+  }
+
+  deleteProduct(product: Product) {
+    Swal.fire({
+      title: 'Tem certeza?',
+      text: `Deseja excluir ${product.name}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sim, excluir!',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.productService.deleteProduct(product.id).subscribe(() => {
+          Swal.fire('Excluído!', 'Produto removido.', 'success');
+          this.loadProducts(this.currentPage());
         });
-    }
+      }
+    });
+  }
 
-    deleteProduct(product: Product) {
-        Swal.fire({
-            title: 'Tem certeza?',
-            text: `Deseja excluir ${product.name}?`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Sim, excluir!',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                this.productService.deleteProduct(product.id).subscribe(() => {
-                    Swal.fire('Excluído!', 'Produto removido.', 'success');
-                    this.loadProducts(this.currentPage());
-                });
-            }
-        });
-    }
+  openModal(product: Product | null = null) {
+    this.selectedProduct.set(product);
+    this.isModalOpen.set(true);
+  }
 
-    openModal(product: Product | null = null) {
-        this.selectedProduct.set(product);
-        this.isModalOpen.set(true);
+  closeModal(saved: boolean) {
+    this.isModalOpen.set(false);
+    this.selectedProduct.set(null);
+    if (saved) {
+      this.loadProducts(this.currentPage());
     }
-
-    closeModal(saved: boolean) {
-        this.isModalOpen.set(false);
-        this.selectedProduct.set(null);
-        if (saved) {
-            this.loadProducts(this.currentPage());
-        }
-    }
+  }
 }

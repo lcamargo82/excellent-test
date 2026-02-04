@@ -21,6 +21,10 @@ export class Client {
     @Column({ type: 'varchar', length: 255 })
     name: string;
 
+    @ApiProperty({ example: '12345678901', description: 'CPF or CNPJ' })
+    @Column({ type: 'varchar', length: 20, unique: true })
+    document: string;
+
     @ApiProperty({ example: 'client@example.com' })
     @Column({ type: 'varchar', length: 255, unique: true })
     email: string;

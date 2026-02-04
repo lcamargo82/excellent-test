@@ -4,10 +4,10 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 
 @Component({
-    selector: 'app-main-layout',
-    standalone: true,
-    imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive],
-    template: `
+  selector: 'app-main-layout',
+  standalone: true,
+  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive],
+  template: `
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm sticky-top">
       <div class="container">
         <a class="navbar-brand fw-bold" routerLink="/dashboard">
@@ -23,11 +23,13 @@ import { AuthService } from '../services/auth.service';
                 <i class="bi bi-speedometer2 me-1"></i> Dashboard
               </a>
             </li>
-            <li class="nav-item">
-              <a class="nav-link" routerLink="/clients" routerLinkActive="active">
-                <i class="bi bi-people me-1"></i> Clientes
-              </a>
-            </li>
+            @if (authService.hasRole('ADMIN')) {
+              <li class="nav-item">
+                <a class="nav-link" routerLink="/clients" routerLinkActive="active">
+                  <i class="bi bi-people me-1"></i> Clientes
+                </a>
+              </li>
+            }
             <li class="nav-item">
               <a class="nav-link" routerLink="/products" routerLinkActive="active">
                 <i class="bi bi-box-seam me-1"></i> Produtos
@@ -64,9 +66,9 @@ import { AuthService } from '../services/auth.service';
   `
 })
 export class MainLayoutComponent {
-    authService = inject(AuthService);
+  authService = inject(AuthService);
 
-    logout() {
-        this.authService.logout();
-    }
+  logout() {
+    this.authService.logout();
+  }
 }

@@ -4,6 +4,7 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } fr
 import { OrdersService } from '../../services/orders.service';
 import { ClientsService } from '../../../clients/services/clients.service';
 import { ProductsService } from '../../../products/services/products.service';
+import { AuthService } from '../../../../core/services/auth.service';
 import { Order } from '../../models/order.model'; // DTOs used internally
 import { Client } from '../../../clients/models/client.model';
 import { Product } from '../../../products/models/product.model';
@@ -80,12 +81,17 @@ import Swal from 'sweetalert2';
                   <div class="row mb-4">
                     <div class="col-md-6">
                       <label class="form-label fw-bold">Cliente</label>
-                      <select class="form-select" formControlName="clientId" [class.is-invalid]="isFieldInvalid('clientId')">
-                        <option value="">Selecione um cliente...</option>
-                        @for (client of clients(); track client.id) {
-                          <option [value]="client.id">{{ client.name }}</option>
-                        }
-                      </select>
+                      @if (isAdmin()) {
+                        <select class="form-select" formControlName="clientId" [class.is-invalid]="isFieldInvalid('clientId')">
+                          <option value="">Selecione um cliente...</option>
+                          @for (client of clients(); track client.id) {
+                            <option [value]="client.id">{{ client.name }}</option>
+                          }
+                        </select>
+                      } @else {
+                        <input type="text" class="form-control bg-light" [value]="currentClientName() || 'Buscando perfil...'" readonly>
+                        <input type="hidden" formControlName="clientId">
+                      }
                       <div class="invalid-feedback">Cliente é obrigatório.</div>
                     </div>
                   </div>
@@ -164,10 +170,14 @@ export class OrderModalComponent implements OnChanges {
   private ordersService = inject(OrdersService);
   private clientsService = inject(ClientsService);
   private productsService = inject(ProductsService);
+  private authService = inject(AuthService);
 
   // Data for Selects
   clients = signal<Client[]>([]);
   products = signal<Product[]>([]);
+
+  isAdmin = computed(() => this.authService.currentUser()?.role === 'ADMIN');
+  currentClientName = signal<string>('');
 
   orderForm: FormGroup = this.fb.group({
     clientId: ['', Validators.required],
@@ -191,10 +201,22 @@ export class OrderModalComponent implements OnChanges {
   }
 
   loadDependencies() {
-    // Load Clients
-    this.clientsService.getClients(1, 100).subscribe(res => {
-      this.clients.set(res.data);
-    });
+    // Load Clients only for Admin
+    if (this.isAdmin()) {
+      this.clientsService.getClients(1, 100).subscribe(res => {
+        this.clients.set(res.data);
+      });
+    } else {
+      // For USER, load their own client profile
+      this.clientsService.getClientMe().subscribe(client => {
+        if (client) {
+          this.currentClientName.set(client.name);
+          this.orderForm.patchValue({ clientId: client.id });
+        } else {
+          Swal.fire('Aviso', 'Perfil de cliente não encontrado. Entre em contato com o suporte.', 'warning');
+        }
+      });
+    }
     // Load Products
     this.productsService.getProducts(1, 100).subscribe(res => {
       this.products.set(res.data);

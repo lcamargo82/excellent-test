@@ -1,6 +1,7 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { OrdersService } from '../../services/orders.service';
+import { AuthService } from '../../../../core/services/auth.service';
 import { Order } from '../../models/order.model';
 import { OrderModalComponent } from '../order-modal/order-modal.component'; // Refresh import
 
@@ -91,7 +92,9 @@ import { OrderModalComponent } from '../order-modal/order-modal.component'; // R
 })
 export class OrderListComponent implements OnInit {
   private ordersService = inject(OrdersService);
+  private authService = inject(AuthService);
 
+  isAdmin = computed(() => this.authService.currentUser()?.role === 'ADMIN');
   orders = signal<Order[]>([]);
   currentPage = signal<number>(1);
   lastPage = signal<number>(1);

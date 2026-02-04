@@ -17,7 +17,7 @@ export class ClientsService {
     ) { }
 
     async create(createClientDto: CreateClientDto): Promise<Client> {
-        const { createdById, ...clientData } = createClientDto;
+        const { createdById, document: doc, ...clientData } = createClientDto;
 
         const user = await this.usersRepository.findOneBy({ id: createdById });
         if (!user) {
@@ -26,6 +26,7 @@ export class ClientsService {
 
         const client = this.clientsRepository.create({
             ...clientData,
+            document: doc,
             created_by: user,
         });
 
@@ -40,6 +41,13 @@ export class ClientsService {
             relations: ['created_by'], // Added relations here to maintain previous behavior
         });
         return { data, total, page, limit };
+    }
+
+    async findByEmail(email: string): Promise<Client | null> {
+        return this.clientsRepository.findOne({
+            where: { email },
+            relations: ['created_by'],
+        });
     }
 
     async findOne(id: string): Promise<Client | null> {

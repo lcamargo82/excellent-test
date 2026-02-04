@@ -2,14 +2,16 @@ import { Component, Input, Output, EventEmitter, inject, OnChanges, SimpleChange
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ClientsService } from '../../services/clients.service';
+import { IntegrationsService } from '../../../../core/services/integrations.service';
 import { Client } from '../../models/client.model';
 import { AuthService } from '../../../../core/services/auth.service';
+import { NgxMaskDirective } from 'ngx-mask';
 import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-client-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, NgxMaskDirective],
   template: `
     @if (isOpen) {
       <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5)">
@@ -21,6 +23,23 @@ import Swal from 'sweetalert2';
             </div>
             <div class="modal-body">
               <form [formGroup]="clientForm" (ngSubmit)="save()">
+                <div class="mb-3">
+                  <label class="form-label fw-bold">CNPJ</label>
+                  <div class="input-group">
+                    <input type="text" class="form-control" formControlName="document"
+                           mask="00.000.000/0000-00"
+                           [class.is-invalid]="isFieldInvalid('document')"
+                           (keyup)="onDocumentKeyUp()">
+                    @if (isFetchingCnpj()) {
+                      <span class="input-group-text">
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                      </span>
+                    }
+                  </div>
+                  <div class="invalid-feedback">CNPJ é obrigatório e deve ser válido.</div>
+                  <small class="text-muted">Digite os 14 dígitos do CNPJ.</small>
+                </div>
+
                 <div class="mb-3">
                   <label class="form-label">Nome</label>
                   <input type="text" class="form-control" formControlName="name" 
@@ -36,13 +55,11 @@ import Swal from 'sweetalert2';
                 </div>
 
                 <div class="mb-3">
-                  <label class="form-label">Telefone</label>
-                  <input type="text" class="form-control" formControlName="phone">
-                </div>
-
-                <div class="mb-3">
-                  <label class="form-label">CPF</label>
-                  <input type="text" class="form-control" formControlName="cpf">
+                  <label class="form-label fw-bold">Telefone</label>
+                  <input type="text" class="form-control" formControlName="phone"
+                         mask="(00) 0000-0000 || (00) 00000-0000"
+                         [class.is-invalid]="isFieldInvalid('phone')">
+                  <div class="invalid-feedback">Telefone é obrigatório.</div>
                 </div>
               </form>
             </div>
@@ -64,16 +81,53 @@ export class ClientModalComponent implements OnChanges {
   @Output() close = new EventEmitter<boolean>();
 
   private fb = inject(FormBuilder);
-  private authService = inject(AuthService); // Inject Auth
-
   private clientService = inject(ClientsService);
+  private integrationsService = inject(IntegrationsService);
+
+  isFetchingCnpj = signal(false);
 
   clientForm: FormGroup = this.fb.group({
     name: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
-    phone: [''],
-    cpf: ['']
+    phone: ['', Validators.required],
+    document: ['', [Validators.required, Validators.minLength(14)]]
   });
+
+
+
+  onDocumentKeyUp() {
+    const val = this.clientForm.get('document')?.value || '';
+    const cleanVal = val.replace(/\D/g, '');
+
+    if (cleanVal.length === 14) {
+      this.fetchCnpj(cleanVal);
+    }
+  }
+
+  fetchCnpj(cnpj: string) {
+    this.isFetchingCnpj.set(true);
+    this.integrationsService.consultCnpj(cnpj).subscribe({
+      next: (data) => {
+        this.isFetchingCnpj.set(false);
+        if (data && data.razao_social) {
+          this.clientForm.patchValue({
+            name: data.razao_social,
+            email: data.estabelecimento.email || this.clientForm.get('email')?.value
+          });
+          Swal.fire({
+            icon: 'info',
+            title: 'CNPJ Identificado',
+            text: `Dados preenchidos para: ${data.razao_social}`,
+            timer: 2000,
+            showConfirmButton: false
+          });
+        }
+      },
+      error: () => {
+        this.isFetchingCnpj.set(false);
+      }
+    });
+  }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['client'] && this.client) {
@@ -94,26 +148,10 @@ export class ClientModalComponent implements OnChanges {
       return;
     }
 
-    const formValue = this.clientForm.value;
-    const user = this.authService.currentUser();
-
-    if (!user && !this.client) {
-      Swal.fire('Erro', 'Usuário não autenticado.', 'error');
-      return;
-    }
-
-    const dto = {
-      ...formValue,
-      createdById: user?.sub // Add ID
-    };
-
-    // Remove createdById if updating (Backend handles it, or ignores)
-    if (this.client) {
-      delete dto.createdById;
-    }
+    const dto = this.clientForm.value;
 
     const request$ = this.client ?
-      this.clientService.updateClient(this.client.id, formValue) : // Update excludes createdById usually
+      this.clientService.updateClient(this.client.id, dto) :
       this.clientService.createClient(dto);
 
     request$.subscribe({

@@ -7,22 +7,23 @@ export class CnpjService {
     constructor(private readonly httpService: HttpService) { }
 
     async consultCnpj(cnpj: string): Promise<any> {
-        // Basic validation
-        if (!cnpj || cnpj.length < 14) {
-            throw new HttpException('Invalid CNPJ', 400);
+        // Remove non-numeric characters
+        const cleanCnpj = cnpj.replace(/\D/g, '');
+
+        if (cleanCnpj.length !== 14) {
+            throw new HttpException('CNPJ deve conter 14 dígitos', 400);
         }
 
         try {
-            // Using public API (ReceitaWS is common for free tier, but cnpj.ws was requested)
-            // Note: cnpj.ws has a paid tier and specific API structure.
-            // ReceitaWS free endpoint: https://www.receitaws.com.br/v1/cnpj/{cnpj}
-            // I will use receitaws as a placeholder for "public API" unless User provides a key.
+            // Using public.cnpj.ws as requested
             const response = await lastValueFrom(
-                this.httpService.get(`https://www.receitaws.com.br/v1/cnpj/${cnpj}`)
+                this.httpService.get(`https://publica.cnpj.ws/cnpj/${cleanCnpj}`)
             );
             return response.data;
         } catch (error) {
-            throw new HttpException('Error fetching CNPJ data', 500);
+            const status = error.response?.status || 500;
+            const message = error.response?.data?.detalhes || 'Falha ao consultar CNPJ';
+            throw new HttpException(message, status);
         }
     }
 }

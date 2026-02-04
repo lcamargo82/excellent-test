@@ -41,4 +41,8 @@ export class ProductsService {
         });
         return this.http.post(`${this.apiUrl}/${id}/images`, formData);
     }
+
+    deleteImage(imageId: string): Observable<void> {
+        return this.http.delete<void>(`${this.apiUrl}/images/${imageId}`);
+    }
 }

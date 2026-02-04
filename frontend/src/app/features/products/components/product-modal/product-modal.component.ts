@@ -17,7 +17,9 @@ import { switchMap, of } from 'rxjs';
         <div class="modal-dialog modal-dialog-centered modal-lg">
           <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
-              <h5 class="modal-title">{{ product ? 'Editar Produto' : 'Novo Produto' }}</h5>
+              <h5 class="modal-title">
+                {{ isAdmin() ? (product ? 'Editar Produto' : 'Novo Produto') : 'Detalhes do Produto' }}
+              </h5>
               <button type="button" class="btn-close btn-close-white" (click)="closeModal()"></button>
             </div>
             <div class="modal-body">
@@ -46,17 +48,44 @@ import { switchMap, of } from 'rxjs';
                 </div>
 
                 <div class="mb-3">
-                  <label class="form-label">Imagens</label>
-                  <input type="file" class="form-control" multiple (change)="onFileSelected($event)" accept="image/*">
-                  <div class="form-text text-muted">Selecione uma ou mais imagens.</div>
+                  <label class="form-label fw-bold">Imagens Atuais</label>
+                  <div class="d-flex flex-wrap gap-2 mb-3">
+                    @for (img of product?.images; track img.id) {
+                      <div class="position-relative group">
+                        <img [src]="'/uploads/products/' + img.url.split('/').pop()" 
+                             alt="Product Image" class="rounded border shadow-sm" 
+                             style="width: 80px; height: 80px; object-fit: cover;">
+                        @if (isAdmin()) {
+                          <button type="button" 
+                                  class="btn btn-danger btn-sm position-absolute top-0 end-0 rounded-circle p-1"
+                                  (click)="removeExistingImage(img.id)"
+                                  style="line-height: 1; transform: translate(30%, -30%);">
+                            <i class="bi bi-x"></i>
+                          </button>
+                        }
+                      </div>
+                    } @empty {
+                      <div class="text-muted small italic">Nenhuma imagem cadastrada.</div>
+                    }
+                  </div>
+                  
+                  @if (isAdmin()) {
+                    <label class="form-label fw-bold">Adicionar Novas Imagens</label>
+                    <input type="file" class="form-control" multiple (change)="onFileSelected($event)" accept="image/*">
+                    <div class="form-text text-muted">Selecione uma ou mais imagens.</div>
+                  }
                 </div>
               </form>
             </div>
             <div class="modal-footer bg-light">
-              <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
-              <button type="button" class="btn btn-primary" (click)="save()" [disabled]="productForm.invalid">
-                <i class="bi bi-save me-1"></i> Salvar
+              <button type="button" class="btn btn-secondary" (click)="closeModal()">
+                {{ isAdmin() ? 'Cancelar' : 'Fechar' }}
               </button>
+              @if (isAdmin()) {
+                <button type="button" class="btn btn-primary" (click)="save()" [disabled]="productForm.invalid">
+                  <i class="bi bi-save me-1"></i> Salvar
+                </button>
+              }
             </div>
           </div>
         </div>
@@ -71,7 +100,9 @@ export class ProductModalComponent implements OnChanges {
 
   private fb = inject(FormBuilder);
   private productService = inject(ProductsService);
-  private authService = inject(AuthService); // Inject Auth
+  private authService = inject(AuthService);
+
+  isAdmin = signal(this.authService.hasRole('ADMIN'));
 
   productForm: FormGroup = this.fb.group({
     name: ['', Validators.required],
@@ -83,6 +114,12 @@ export class ProductModalComponent implements OnChanges {
   selectedFiles: File[] = [];
 
   ngOnChanges(changes: SimpleChanges) {
+    if (this.isAdmin()) {
+      this.productForm.enable();
+    } else {
+      this.productForm.disable();
+    }
+
     if (changes['product'] && this.product) {
       this.productForm.patchValue(this.product);
     } else if (changes['isOpen'] && this.isOpen && !this.product) {
@@ -102,27 +139,36 @@ export class ProductModalComponent implements OnChanges {
     }
   }
 
+  removeExistingImage(imageId: string) {
+    Swal.fire({
+      title: 'Excluir imagem?',
+      text: 'Esta ação não pode ser desfeita.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sim, excluir',
+      cancelButtonText: 'Cancelar'
+    }).then(result => {
+      if (result.isConfirmed) {
+        this.productService.deleteImage(imageId).subscribe({
+          next: () => {
+            if (this.product) {
+              this.product.images = this.product.images.filter(i => i.id !== imageId);
+            }
+            Swal.fire('Sucesso', 'Imagem removida.', 'success');
+          },
+          error: () => Swal.fire('Erro', 'Falha ao remover imagem.', 'error')
+        });
+      }
+    });
+  }
+
   save() {
     if (this.productForm.invalid) {
       this.productForm.markAllAsTouched();
       return;
     }
 
-    const user = this.authService.currentUser();
-    if (!user && !this.product) {
-      Swal.fire('Erro', 'Usuário não autenticado.', 'error');
-      return;
-    }
-
-    const formValue = this.productForm.value;
-    const dto = {
-      ...formValue,
-      createdById: user?.sub
-    };
-
-    if (this.product) {
-      delete dto.createdById;
-    }
+    const dto = this.productForm.value;
 
     // Logic: Create/Update -> Then Upload Images if any
     let request$;

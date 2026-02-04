@@ -10,6 +10,10 @@ export class ClientsService {
     private http = inject(HttpClient);
     private apiUrl = '/api/v1/clients';
 
+    getClientMe(): Observable<Client> {
+        return this.http.get<Client>(`${this.apiUrl}/me`);
+    }
+
     getClients(page: number = 1, limit: number = 10): Observable<PaginatedResult<Client>> {
         const params = new HttpParams()
             .set('page', page)

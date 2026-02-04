@@ -4,8 +4,9 @@ import { DataSource, Repository } from 'typeorm';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
-import { Client } from '@clients/entities/client.entity';
-import { Product } from '@products/entities/product.entity';
+import { Client } from '../clients/entities/client.entity';
+import { Product } from '../products/entities/product.entity';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Injectable()
 export class OrdersService {
@@ -68,10 +69,18 @@ export class OrdersService {
         });
     }
 
-    async findAll(): Promise<Order[]> {
-        return this.ordersRepository.find({
+    async findAll(paginationDto: PaginationDto): Promise<{ data: Order[], total: number, page: number, lastPage: number }> {
+        const { page = 1, limit = 10 } = paginationDto;
+        const [data, total] = await this.ordersRepository.findAndCount({
+            skip: (page - 1) * limit,
+            take: limit,
             relations: ['client', 'items', 'items.product', 'client.created_by'],
+            order: { created_at: 'DESC' },
         });
+
+        const lastPage = Math.ceil(total / limit);
+
+        return { data, total, page, lastPage };
     }
 
     async findOne(id: string): Promise<Order | null> {
@@ -82,11 +91,6 @@ export class OrdersService {
     }
 
     async remove(id: string): Promise<void> {
-        // Here we could implement stock return logic if needed, but per requirements simple delete logic is requested (or not specified yet).
-        // Since it's a delete, ideally we should soft-delete the order, but keeping it simple as requested without soft-delete column on order unless I add it.
-        // Wait, I added created_by/update/deleted_at to Order entity? No, only created/update.
-        // Let's implement hard delete or updated entity.
-        // I will implement a check.
         const order = await this.findOne(id);
         if (!order) {
             throw new NotFoundException(`Order with ID ${id} not found`);

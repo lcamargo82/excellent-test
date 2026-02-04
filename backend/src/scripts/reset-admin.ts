@@ -30,6 +30,8 @@ async function run() {
             email: email,
             role: 'ADMIN'
         });
+    } else {
+        user.role = 'ADMIN'; // Force Admin role
     }
 
     const newPass = 'admin123';

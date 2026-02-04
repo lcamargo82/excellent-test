@@ -7,6 +7,11 @@ export class CreateClientDto {
     @IsNotEmpty()
     name: string;
 
+    @ApiProperty({ example: '12345678000195', description: 'CNPJ (14 digits)' })
+    @IsString()
+    @IsNotEmpty()
+    document: string;
+
     @ApiProperty({ example: 'client@test.com' })
     @IsEmail()
     @IsNotEmpty()
@@ -17,8 +22,7 @@ export class CreateClientDto {
     @IsOptional()
     phone?: string;
 
-    @ApiProperty({ example: 'uuid-user-id', description: 'ID of the admin who created this client' })
+    @IsOptional()
     @IsUUID()
-    @IsNotEmpty()
-    createdById: string;
+    createdById?: string;
 }

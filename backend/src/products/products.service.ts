@@ -6,6 +6,7 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductImage } from './entities/product-image.entity';
 import { Product } from './entities/product.entity';
 import { User } from '../users/entities/user.entity';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Injectable()
 export class ProductsService {
@@ -28,14 +29,24 @@ export class ProductsService {
 
         const product = this.productsRepository.create({
             ...productData,
+            stock: productData.stock || 0,
             created_by: user,
         });
 
         return this.productsRepository.save(product);
     }
 
-    async findAll(): Promise<Product[]> {
-        return this.productsRepository.find({ relations: ['created_by', 'images'] });
+    async findAll(paginationDto: PaginationDto): Promise<{ data: Product[], total: number, page: number, lastPage: number }> {
+        const { page = 1, limit = 10 } = paginationDto;
+        const [data, total] = await this.productsRepository.findAndCount({
+            skip: (page - 1) * limit,
+            take: limit,
+            relations: ['created_by', 'images'],
+        });
+
+        const lastPage = Math.ceil(total / limit);
+
+        return { data, total, page, lastPage };
     }
 
     async findOne(id: string): Promise<Product | null> {
@@ -50,8 +61,7 @@ export class ProductsService {
         if (!product) throw new NotFoundException('Product not found');
 
         const images = urls.map(url => this.imagesRepository.create({ url, product }));
-        await this.imagesRepository.save(images); // Save images explicitly or via cascade? 
-        // Better to save images
+        await this.imagesRepository.save(images);
 
         const updatedProduct = await this.findOne(id);
         if (!updatedProduct) throw new NotFoundException('Product not found after adding images');
@@ -76,6 +86,14 @@ export class ProductsService {
 
         Object.assign(product, updateData);
         return this.productsRepository.save(product);
+    }
+
+    async removeImage(imageId: string): Promise<void> {
+        const image = await this.imagesRepository.findOneBy({ id: imageId });
+        if (!image) {
+            throw new NotFoundException(`Image with ID ${imageId} not found`);
+        }
+        await this.imagesRepository.delete(imageId);
     }
 
     async remove(id: string): Promise<void> {
