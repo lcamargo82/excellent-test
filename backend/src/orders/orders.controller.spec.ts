@@ -36,8 +36,9 @@ describe('OrdersController', () => {
 
     describe('findAll', () => {
         it('should call service.findAll', async () => {
-            await controller.findAll();
-            expect(mockOrdersService.findAll).toHaveBeenCalled();
+            const paginationDto = { page: 1, limit: 10 };
+            await controller.findAll(paginationDto);
+            expect(mockOrdersService.findAll).toHaveBeenCalledWith(paginationDto);
         });
     });
 });

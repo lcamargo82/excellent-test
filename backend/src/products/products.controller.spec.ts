@@ -42,7 +42,8 @@ describe('ProductsController', () => {
             };
             mockProductsService.create.mockResolvedValue(dto);
 
-            await controller.create(dto);
+            const mockReq = { user: { userId: '1' } } as any;
+            await controller.create(dto, mockReq);
 
             expect(mockProductsService.create).toHaveBeenCalledWith(dto);
         });
@@ -51,8 +52,9 @@ describe('ProductsController', () => {
     describe('findAll', () => {
         it('should call service.findAll', async () => {
             mockProductsService.findAll.mockResolvedValue([]);
-            await controller.findAll();
-            expect(mockProductsService.findAll).toHaveBeenCalled();
+            const paginationDto = { page: 1, limit: 10 };
+            await controller.findAll(paginationDto);
+            expect(mockProductsService.findAll).toHaveBeenCalledWith(paginationDto);
         });
     });
 });

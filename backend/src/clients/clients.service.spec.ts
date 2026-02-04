@@ -10,6 +10,7 @@ const mockClientsRepository = {
     create: jest.fn(),
     save: jest.fn(),
     find: jest.fn(),
+    findAndCount: jest.fn(),
     findOne: jest.fn(),
     softDelete: jest.fn(),
 };
@@ -49,6 +50,7 @@ describe('ClientsService', () => {
             const createDto = {
                 name: 'Client',
                 email: 'client@test.com',
+                document: '12345678000195',
                 createdById: 'userId',
             };
             const user = { id: 'userId' } as User;
@@ -64,6 +66,7 @@ describe('ClientsService', () => {
             expect(mockClientsRepository.create).toHaveBeenCalledWith({
                 name: 'Client',
                 email: 'client@test.com',
+                document: '12345678000195',
                 created_by: user,
             });
             expect(result).toEqual(newClient);
@@ -76,6 +79,7 @@ describe('ClientsService', () => {
                 service.create({
                     name: 'Client',
                     email: 'test@test.com',
+                    document: '12345678000195',
                     createdById: 'invalid',
                 }),
             ).rejects.toThrow(NotFoundException);
@@ -83,14 +87,20 @@ describe('ClientsService', () => {
     });
 
     describe('findAll', () => {
-        it('should return clients array', async () => {
+        it('should return paginated clients', async () => {
             const clients = [{ id: '1', name: 'Client' }];
-            mockClientsRepository.find.mockResolvedValue(clients);
+            const total = 1;
+            mockClientsRepository.findAndCount.mockResolvedValue([clients, total]);
 
-            const result = await service.findAll();
+            const paginationDto = { page: 1, limit: 10 };
+            const result = await service.findAll(paginationDto);
 
-            expect(mockClientsRepository.find).toHaveBeenCalledWith({ relations: ['created_by'] });
-            expect(result).toEqual(clients);
+            expect(mockClientsRepository.findAndCount).toHaveBeenCalledWith({
+                skip: 0,
+                take: 10,
+                relations: ['created_by'],
+            });
+            expect(result).toEqual({ data: clients, total, page: 1, limit: 10 });
         });
     });
 });

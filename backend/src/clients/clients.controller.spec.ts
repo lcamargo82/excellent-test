@@ -38,11 +38,13 @@ describe('ClientsController', () => {
             const dto: CreateClientDto = {
                 name: 'Client',
                 email: 'c@t.com',
+                document: '12345678000195',
                 createdById: '1',
             };
             mockClientsService.create.mockResolvedValue(dto);
 
-            await controller.create(dto);
+            const mockReq = { user: { userId: '1' } } as any;
+            await controller.create(dto, mockReq);
 
             expect(mockClientsService.create).toHaveBeenCalledWith(dto);
         });
@@ -51,8 +53,9 @@ describe('ClientsController', () => {
     describe('findAll', () => {
         it('should call service.findAll', async () => {
             mockClientsService.findAll.mockResolvedValue([]);
-            await controller.findAll();
-            expect(mockClientsService.findAll).toHaveBeenCalled();
+            const paginationDto = { page: 1, limit: 10 };
+            await controller.findAll(paginationDto);
+            expect(mockClientsService.findAll).toHaveBeenCalledWith(paginationDto);
         });
     });
 });

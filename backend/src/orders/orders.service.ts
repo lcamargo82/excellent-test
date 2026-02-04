@@ -91,10 +91,27 @@ export class OrdersService {
     }
 
     async remove(id: string): Promise<void> {
-        const order = await this.findOne(id);
-        if (!order) {
-            throw new NotFoundException(`Order with ID ${id} not found`);
-        }
-        await this.ordersRepository.remove(order);
+        await this.dataSource.transaction(async (manager) => {
+            const order = await manager.findOne(Order, {
+                where: { id },
+                relations: ['items', 'items.product'],
+            });
+
+            if (!order) {
+                throw new NotFoundException(`Order with ID ${id} not found`);
+            }
+
+            // Restore stock for each product
+            for (const item of order.items) {
+                if (item.product) {
+                    item.product.stock = Number(item.product.stock) + Number(item.quantity);
+                    await manager.save(Product, item.product);
+                }
+            }
+
+            // Delete order (Cascade handles items if configured, but let's be explicit or trust TypeORM cascade)
+            // Based on order.entity.ts, items has cascade: true
+            await manager.remove(Order, order);
+        });
     }
 }

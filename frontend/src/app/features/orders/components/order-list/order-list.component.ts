@@ -1,4 +1,5 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import Swal from 'sweetalert2';
 import { CommonModule } from '@angular/common';
 import { OrdersService } from '../../services/orders.service';
 import { AuthService } from '../../../../core/services/auth.service';
@@ -48,9 +49,14 @@ import { OrderModalComponent } from '../order-modal/order-modal.component'; // R
                     </td>
                     <td>{{ order.created_at | date:'dd/MM/yyyy HH:mm' }}</td>
                     <td class="text-end pe-4">
-                      <button class="btn btn-sm btn-outline-info" (click)="viewOrder(order)" title="Detalhes">
+                      <button class="btn btn-sm btn-outline-info me-2" (click)="viewOrder(order)" title="Detalhes">
                         <i class="bi bi-eye"></i>
                       </button>
+                      @if (isAdmin()) {
+                        <button class="btn btn-sm btn-outline-danger" (click)="deleteOrder(order)" title="Excluir">
+                          <i class="bi bi-trash"></i>
+                        </button>
+                      }
                     </td>
                   </tr>
                 } @empty {
@@ -127,6 +133,32 @@ export class OrderListComponent implements OnInit {
   viewOrder(order: Order) {
     this.selectedOrder.set(order); // View mode - Modal needs to handle Read-Only
     this.isModalOpen.set(true);
+  }
+
+  deleteOrder(order: Order) {
+    Swal.fire({
+      title: 'Tem certeza?',
+      text: `Deseja excluir o pedido #${order.id.substring(0, 8)}? O estoque será estornado.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sim, excluir!',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.ordersService.deleteOrder(order.id).subscribe({
+          next: () => {
+            Swal.fire('Excluído!', 'Pedido removido e estoque estornado.', 'success');
+            this.loadOrders(this.currentPage());
+          },
+          error: (err) => {
+            console.error(err);
+            Swal.fire('Erro!', 'Não foi possível excluir o pedido.', 'error');
+          }
+        });
+      }
+    });
   }
 
   closeModal(saved: boolean) {

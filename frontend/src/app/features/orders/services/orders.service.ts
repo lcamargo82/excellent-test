@@ -25,4 +25,8 @@ export class OrdersService {
     createOrder(order: CreateOrderDto): Observable<Order> {
         return this.http.post<Order>(this.apiUrl, order);
     }
+
+    deleteOrder(id: string): Observable<void> {
+        return this.http.delete<void>(`${this.apiUrl}/${id}`);
+    }
 }

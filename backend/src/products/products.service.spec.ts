@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ProductsService } from './products.service';
 import { Product } from './entities/product.entity';
+import { ProductImage } from './entities/product-image.entity';
 import { User } from '@users/entities/user.entity';
 import { Repository } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
@@ -10,12 +11,20 @@ const mockProductsRepository = {
     create: jest.fn(),
     save: jest.fn(),
     find: jest.fn(),
+    findAndCount: jest.fn(),
     findOne: jest.fn(),
     softDelete: jest.fn(),
 };
 
 const mockUsersRepository = {
     findOneBy: jest.fn(),
+};
+
+const mockImagesRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
+    findOneBy: jest.fn(),
+    delete: jest.fn(),
 };
 
 describe('ProductsService', () => {
@@ -33,6 +42,10 @@ describe('ProductsService', () => {
                     provide: getRepositoryToken(User),
                     useValue: mockUsersRepository,
                 },
+                {
+                    provide: getRepositoryToken(ProductImage),
+                    useValue: mockImagesRepository,
+                },
             ],
         }).compile();
 
@@ -49,6 +62,7 @@ describe('ProductsService', () => {
             const createDto = {
                 name: 'Product',
                 price: 10.5,
+                stock: 0,
                 createdById: 'userId',
             };
             const user = { id: 'userId' } as User;
@@ -64,6 +78,7 @@ describe('ProductsService', () => {
             expect(mockProductsRepository.create).toHaveBeenCalledWith({
                 name: 'Product',
                 price: 10.5,
+                stock: 0,
                 created_by: user,
             });
             expect(result).toEqual(newProduct);
@@ -76,6 +91,7 @@ describe('ProductsService', () => {
                 service.create({
                     name: 'Product',
                     price: 10,
+                    stock: 0,
                     createdById: 'invalid',
                 }),
             ).rejects.toThrow(NotFoundException);
@@ -83,14 +99,20 @@ describe('ProductsService', () => {
     });
 
     describe('findAll', () => {
-        it('should return products array', async () => {
+        it('should return paginated products', async () => {
             const products = [{ id: '1', name: 'Product' }];
-            mockProductsRepository.find.mockResolvedValue(products);
+            const total = 1;
+            mockProductsRepository.findAndCount.mockResolvedValue([products, total]);
 
-            const result = await service.findAll();
+            const paginationDto = { page: 1, limit: 10 };
+            const result = await service.findAll(paginationDto);
 
-            expect(mockProductsRepository.find).toHaveBeenCalledWith({ relations: ['created_by'] });
-            expect(result).toEqual(products);
+            expect(mockProductsRepository.findAndCount).toHaveBeenCalledWith({
+                skip: 0,
+                take: 10,
+                relations: ['created_by', 'images'],
+            });
+            expect(result).toEqual({ data: products, total, page: 1, lastPage: 1 });
         });
     });
 });
