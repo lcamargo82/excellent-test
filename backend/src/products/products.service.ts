@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, MoreThan } from 'typeorm';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductImage } from './entities/product-image.entity';
@@ -37,8 +37,16 @@ export class ProductsService {
     }
 
     async findAll(paginationDto: PaginationDto): Promise<{ data: Product[], total: number, page: number, lastPage: number }> {
-        const { page = 1, limit = 10 } = paginationDto;
+        const { page = 1, limit = 10, available } = paginationDto;
+
+        const where: any = {};
+        if (available) {
+            where.stock = MoreThan(0);
+            where.price = MoreThan(0);
+        }
+
         const [data, total] = await this.productsRepository.findAndCount({
+            where,
             skip: (page - 1) * limit,
             take: limit,
             relations: ['created_by', 'images'],

@@ -134,7 +134,9 @@ export class ProductListComponent implements OnInit {
   }
 
   loadProducts(page: number = 1) {
-    this.productService.getProducts(page).subscribe({
+    const onlyAvailable = !this.isAdmin();
+    // Default limit is 10 in service, passing it explicitly here to match signature
+    this.productService.getProducts(page, 10, onlyAvailable).subscribe({
       next: (res) => {
         this.products.set(res.data);
         this.currentPage.set(res.page);

@@ -15,5 +15,11 @@ export class PaginationDto {
     @IsInt()
     @Min(1)
     @IsOptional()
+    @IsOptional()
     limit?: number = 10;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @Type(() => Boolean)
+    available?: boolean;
 }

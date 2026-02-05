@@ -26,6 +26,8 @@ services:
     command: tail -f /dev/null # Keeps the container running for manual initialization
     depends_on:
       - postgres
+    env_file:
+      - .env
     networks:
       - app-network
 
@@ -38,6 +40,27 @@ services:
     ports:
       - "4200:4200"
     command: tail -f /dev/null # Keeps the container running for manual initialization
+    networks:
+      - app-network
+
+  datadog-agent:
+    image: datadog/agent:latest
+    container_name: datadog_agent
+    environment:
+      - DD_API_KEY=${DD_API_KEY}
+      - DD_SITE=us5.datadoghq.com
+      - DD_APM_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT=0.0.0.0:4317
+      - DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_HTTP_ENDPOINT=0.0.0.0:4318
+    ports:
+      - "8126:8126"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
     networks:
       - app-network
 

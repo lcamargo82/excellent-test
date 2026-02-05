@@ -51,7 +51,7 @@ import { ProductImage } from './products/entities/product-image.entity';
         // entities: [User, ProductImage], 
         autoLoadEntities: true,
         synchronize: false, // Using migrations
-        logging: true,
+        logging: false,
       }),
       inject: [ConfigService],
     }),

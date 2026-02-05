@@ -6,11 +6,12 @@ import { Product } from '../../models/product.model';
 import { AuthService } from '../../../../core/services/auth.service';
 import Swal from 'sweetalert2';
 import { switchMap, of } from 'rxjs';
+import { NgxMaskDirective } from 'ngx-mask';
 
 @Component({
   selector: 'app-product-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, NgxMaskDirective],
   template: `
     @if (isOpen) {
       <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5)">
@@ -33,12 +34,21 @@ import { switchMap, of } from 'rxjs';
                   </div>
                   <div class="col-md-3 mb-3">
                     <label class="form-label">Preço</label>
-                    <input type="number" class="form-control" formControlName="price"
-                           [class.is-invalid]="isFieldInvalid('price')">
+                    <input type="text" class="form-control" formControlName="price"
+                           mask="separator.2" thousandSeparator="." decimalMarker="," prefix="R$ "
+                           [class.is-invalid]="isFieldInvalid('price') || productForm.hasError('priceRequired')">
+                    <div class="invalid-feedback">
+                      {{ productForm.hasError('priceRequired') ? 'Preço obrigatório se houver estoque.' : 'Preço inválido.' }}
+                    </div>
                   </div>
                   <div class="col-md-3 mb-3">
                     <label class="form-label">Estoque</label>
-                    <input type="number" class="form-control" formControlName="stock">
+                    <input type="text" class="form-control" formControlName="stock"
+                           mask="0*"
+                           [class.is-invalid]="isFieldInvalid('stock') || productForm.hasError('stockRequired')">
+                     <div class="invalid-feedback">
+                      {{ productForm.hasError('stockRequired') ? 'Estoque obrigatório se houver preço.' : 'Estoque inválido.' }}
+                    </div>
                   </div>
                 </div>
 
@@ -107,9 +117,26 @@ export class ProductModalComponent implements OnChanges {
   productForm: FormGroup = this.fb.group({
     name: ['', Validators.required],
     description: [''],
-    price: [0, [Validators.required, Validators.min(0)]],
-    stock: [0, [Validators.required, Validators.min(0)]]
-  });
+    price: [''],
+    stock: ['']
+  }, { validators: this.dependencyValidator });
+
+  dependencyValidator(group: FormGroup) {
+    const price = group.get('price')?.value;
+    const stock = group.get('stock')?.value;
+
+    // Check if fields are "filled" (non-empty string/number)
+    const priceFilled = price !== null && price !== '' && price !== undefined;
+    const stockFilled = stock !== null && stock !== '' && stock !== undefined;
+
+    if (stockFilled && !priceFilled) {
+      return { priceRequired: true };
+    }
+    if (priceFilled && !stockFilled) {
+      return { stockRequired: true };
+    }
+    return null;
+  }
 
   selectedFiles: File[] = [];
 
@@ -123,7 +150,7 @@ export class ProductModalComponent implements OnChanges {
     if (changes['product'] && this.product) {
       this.productForm.patchValue(this.product);
     } else if (changes['isOpen'] && this.isOpen && !this.product) {
-      this.productForm.reset({ price: 0, stock: 0 });
+      this.productForm.reset({ price: '', stock: '' });
       this.selectedFiles = [];
     }
   }
@@ -132,6 +159,7 @@ export class ProductModalComponent implements OnChanges {
     const control = this.productForm.get(field);
     return !!(control && control.invalid && (control.dirty || control.touched));
   }
+
 
   onFileSelected(event: any) {
     if (event.target.files) {

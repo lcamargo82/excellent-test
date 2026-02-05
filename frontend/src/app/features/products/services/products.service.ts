@@ -11,10 +11,14 @@ export class ProductsService {
     private http = inject(HttpClient);
     private apiUrl = '/api/v1/products';
 
-    getProducts(page: number = 1, limit: number = 10): Observable<PaginatedResult<Product>> {
-        const params = new HttpParams()
+    getProducts(page: number = 1, limit: number = 10, available?: boolean): Observable<PaginatedResult<Product>> {
+        let params = new HttpParams()
             .set('page', page)
             .set('limit', limit);
+
+        if (available) {
+            params = params.set('available', 'true');
+        }
         return this.http.get<PaginatedResult<Product>>(this.apiUrl, { params });
     }
 

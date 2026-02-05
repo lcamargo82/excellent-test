@@ -58,7 +58,7 @@ import Swal from 'sweetalert2';
                       @for (item of order.items; track item.id) {
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                           <div>
-                            <span class="fw-bold">{{ item.product?.name }}</span>
+                            <span class="fw-bold">{{ item.product.name }}</span>
                             <div class="text-muted small">
                               {{ item.quantity }} x {{ item.price | currency:'BRL' }}
                             </div>
@@ -218,7 +218,8 @@ export class OrderModalComponent implements OnChanges {
       });
     }
     // Load Products
-    this.productsService.getProducts(1, 100).subscribe(res => {
+    const onlyAvailable = !this.isAdmin();
+    this.productsService.getProducts(1, 100, onlyAvailable).subscribe(res => {
       this.products.set(res.data);
     });
   }
