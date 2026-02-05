@@ -30,6 +30,8 @@ services:
       - .env
     networks:
       - app-network
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "nodejs", "service": "backend"}]'
 
   frontend:
     image: node:20
@@ -53,6 +55,8 @@ services:
       - DD_APM_NON_LOCAL_TRAFFIC=true
       - DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT=0.0.0.0:4317
       - DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_HTTP_ENDPOINT=0.0.0.0:4318
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
     ports:
       - "8126:8126"
       - "4317:4317"
