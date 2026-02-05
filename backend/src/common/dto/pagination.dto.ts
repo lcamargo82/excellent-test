@@ -22,4 +22,8 @@ export class PaginationDto {
     @IsOptional()
     @Type(() => Boolean)
     available?: boolean;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    search?: string;
 }

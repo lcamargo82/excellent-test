@@ -12,3 +12,11 @@ export interface CreateUserDto {
     password?: string;
     role?: string;
 }
+
+export interface PaginatedResult<T> {
+    data: T[];
+    total: number;
+    page: number;
+    lastPage: number;
+    limit?: number; // Optional in frontend usually
+}

@@ -14,10 +14,14 @@ export class ClientsService {
         return this.http.get<Client>(`${this.apiUrl}/me`);
     }
 
-    getClients(page: number = 1, limit: number = 10): Observable<PaginatedResult<Client>> {
-        const params = new HttpParams()
+    getClients(page: number = 1, limit: number = 10, search?: string): Observable<PaginatedResult<Client>> {
+        let params = new HttpParams()
             .set('page', page)
             .set('limit', limit);
+
+        if (search) {
+            params = params.set('search', search);
+        }
         return this.http.get<PaginatedResult<Client>>(this.apiUrl, { params });
     }
 

@@ -1,15 +1,16 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import Swal from 'sweetalert2';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms'; // Import FormsModule
 import { OrdersService } from '../../services/orders.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { Order } from '../../models/order.model';
-import { OrderModalComponent } from '../order-modal/order-modal.component'; // Refresh import
+import { OrderModalComponent } from '../order-modal/order-modal.component';
 
 @Component({
   selector: 'app-order-list',
   standalone: true,
-  imports: [CommonModule, OrderModalComponent],
+  imports: [CommonModule, OrderModalComponent, FormsModule], // Add FormsModule
   template: `
     <div class="container mt-5 animate__animated animate__fadeIn">
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -20,6 +21,17 @@ import { OrderModalComponent } from '../order-modal/order-modal.component'; // R
       </div>
 
       <div class="card shadow border-0 rounded-3">
+        <div class="card-header bg-white py-3 border-0">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input 
+                    type="text" 
+                    class="form-control border-start-0 ps-0" 
+                    placeholder="Buscar pedidos por cliente ou ID..." 
+                    [(ngModel)]="searchQuery" 
+                    (ngModelChange)="onSearch($event)">
+            </div>
+        </div>
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table table-hover table-striped mb-0 align-middle">
@@ -105,6 +117,8 @@ export class OrderListComponent implements OnInit {
   currentPage = signal<number>(1);
   lastPage = signal<number>(1);
   totalItems = signal<number>(0);
+  searchQuery = signal<string>('');
+  private searchTimeout: any;
 
   isModalOpen = signal<boolean>(false);
   selectedOrder = signal<Order | null>(null);
@@ -114,7 +128,8 @@ export class OrderListComponent implements OnInit {
   }
 
   loadOrders(page: number = 1) {
-    this.ordersService.getOrders(page).subscribe({
+    const search = this.searchQuery();
+    this.ordersService.getOrders(page, 10, search).subscribe({
       next: (res) => {
         this.orders.set(res.data);
         this.currentPage.set(res.page);
@@ -123,6 +138,14 @@ export class OrderListComponent implements OnInit {
       },
       error: (err) => console.error(err)
     });
+  }
+
+  onSearch(query: string) {
+    this.searchQuery.set(query);
+    if (this.searchTimeout) clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+      this.loadOrders(1);
+    }, 300);
   }
 
   openModal() {

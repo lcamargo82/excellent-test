@@ -11,10 +11,14 @@ export class OrdersService {
     private http = inject(HttpClient);
     private apiUrl = '/api/v1/orders';
 
-    getOrders(page: number = 1, limit: number = 10): Observable<PaginatedResult<Order>> {
-        const params = new HttpParams()
+    getOrders(page: number = 1, limit: number = 10, search?: string): Observable<PaginatedResult<Order>> {
+        let params = new HttpParams()
             .set('page', page)
             .set('limit', limit);
+
+        if (search) {
+            params = params.set('search', search);
+        }
         return this.http.get<PaginatedResult<Order>>(this.apiUrl, { params });
     }
 

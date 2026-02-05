@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms'; // Import FormsModule
 import { ClientsService } from '../../services/clients.service';
 import { Client, PaginatedResult } from '../../models/client.model';
 import Swal from 'sweetalert2';
@@ -11,7 +12,7 @@ import { NgxMaskPipe } from 'ngx-mask';
 @Component({
   selector: 'app-client-list',
   standalone: true,
-  imports: [CommonModule, ClientModalComponent, NgxMaskPipe],
+  imports: [CommonModule, ClientModalComponent, NgxMaskPipe, FormsModule], // Add FormsModule
   template: `
     <div class="container mt-5 animate__animated animate__fadeIn">
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -24,6 +25,17 @@ import { NgxMaskPipe } from 'ngx-mask';
       </div>
 
       <div class="card shadow border-0 rounded-3">
+        <div class="card-header bg-white py-3 border-0">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input 
+                    type="text" 
+                    class="form-control border-start-0 ps-0" 
+                    placeholder="Buscar clientes por nome, email ou documento..." 
+                    [(ngModel)]="searchQuery" 
+                    (ngModelChange)="onSearch($event)">
+            </div>
+        </div>
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table table-hover table-striped mb-0 align-middle">
@@ -106,6 +118,8 @@ export class ClientListComponent implements OnInit {
   currentPage = signal<number>(1);
   lastPage = signal<number>(1);
   totalItems = signal<number>(0);
+  searchQuery = signal<string>('');
+  private searchTimeout: any;
 
   // Modal State
   isModalOpen = signal<boolean>(false);
@@ -116,7 +130,8 @@ export class ClientListComponent implements OnInit {
   }
 
   loadClients(page: number = 1) {
-    this.clientService.getClients(page).subscribe({
+    const search = this.searchQuery();
+    this.clientService.getClients(page, 10, search).subscribe({
       next: (res) => {
         this.clients.set(res.data);
         this.currentPage.set(res.page);
@@ -125,6 +140,14 @@ export class ClientListComponent implements OnInit {
       },
       error: (err) => console.error(err)
     });
+  }
+
+  onSearch(query: string) {
+    this.searchQuery.set(query);
+    if (this.searchTimeout) clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+      this.loadClients(1);
+    }, 300);
   }
 
   deleteClient(client: Client) {

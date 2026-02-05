@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, ILike } from 'typeorm';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
@@ -70,13 +70,30 @@ export class OrdersService {
     }
 
     async findAll(paginationDto: PaginationDto): Promise<{ data: Order[], total: number, page: number, lastPage: number }> {
-        const { page = 1, limit = 10 } = paginationDto;
-        const [data, total] = await this.ordersRepository.findAndCount({
+        const { page = 1, limit = 10, search } = paginationDto;
+
+        let findOptions: any = {
             skip: (page - 1) * limit,
             take: limit,
             relations: ['client', 'items', 'items.product', 'client.created_by'],
-            order: { created_at: 'DESC' },
-        });
+            order: { created_at: 'DESC' }
+        };
+
+        if (search) {
+            findOptions.where = [
+                // Filter by Client Name
+                { client: { name: ILike(`%${search}%`) } },
+                // Filter by Order ID (needs to be valid UUID or we can try simple cast if postgres supports it, 
+                // but usually better to stick to client name or exact ID. 
+                // However, let's try assuming user types alphanumeric. 
+                // TypeORM might complain if we try ILIKE on uuid column without cast.
+                // For safety and simplicity in this iteration, I'll filter by Client Name and maybe exact ID if it matches UUID format?
+                // Or just try ILike on ID, Postgres often casts automatically for LIKE.
+                { id: ILike(`%${search}%`) }
+            ];
+        }
+
+        const [data, total] = await this.ordersRepository.findAndCount(findOptions);
 
         const lastPage = Math.ceil(total / limit);
 

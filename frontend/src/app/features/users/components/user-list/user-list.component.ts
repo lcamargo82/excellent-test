@@ -1,23 +1,38 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { UsersService } from '../../services/users.service';
 import { User } from '../../models/user.model';
-import { UserModalComponent } from '../user-modal/user-modal.component'; // Refresh import
+import { UserModalComponent } from '../user-modal/user-modal.component';
 
 @Component({
   selector: 'app-user-list',
   standalone: true,
-  imports: [CommonModule, UserModalComponent],
+  imports: [CommonModule, UserModalComponent, FormsModule],
   template: `
     <div class="container mt-5 animate__animated animate__fadeIn">
       <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="text-primary fw-bold"><i class="bi bi-person-gear me-2"></i> Usuários</h2>
+        <div>
+           <h2 class="text-primary fw-bold"><i class="bi bi-person-gear me-2"></i> Usuários</h2>
+           <p class="text-muted mb-0">Gerencie os usuários do sistema</p>
+        </div>
         <button class="btn btn-success shadow-sm" (click)="openModal()">
           <i class="bi bi-person-plus-fill me-1"></i> Novo Usuário
         </button>
       </div>
 
       <div class="card shadow border-0 rounded-3">
+        <div class="card-header bg-white py-3 border-0">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input 
+                    type="text" 
+                    class="form-control border-start-0 ps-0" 
+                    placeholder="Buscar usuários..." 
+                    [(ngModel)]="searchQuery" 
+                    (ngModelChange)="onSearch($event)">
+            </div>
+        </div>
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table table-hover table-striped mb-0 align-middle">
@@ -50,13 +65,40 @@ import { UserModalComponent } from '../user-modal/user-modal.component'; // Refr
                 } @empty {
                   <tr>
                     <td colspan="4" class="text-center py-5 text-muted">
-                      Nenhum usuário encontrado.
+                      <div class="d-flex flex-column align-items-center">
+                        <i class="bi bi-person-x fs-1 mb-2"></i>
+                        <p class="mb-0">Nenhum usuário encontrado.</p>
+                      </div>
                     </td>
                   </tr>
                 }
               </tbody>
             </table>
           </div>
+        </div>
+        <div class="card-footer bg-white border-top-0 py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted small">
+                    Mostrando {{ users().length }} de {{ totalItems() }} registros
+                </span>
+                <nav aria-label="Page navigation">
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item" [class.disabled]="currentPage() === 1">
+                            <button class="page-link" (click)="onPageChange(currentPage() - 1)">
+                                <i class="bi bi-chevron-left"></i>
+                            </button>
+                        </li>
+                        <li class="page-item active">
+                            <span class="page-link">{{ currentPage() }}</span>
+                        </li>
+                        <li class="page-item" [class.disabled]="currentPage() >= lastPage()">
+                            <button class="page-link" (click)="onPageChange(currentPage() + 1)">
+                                <i class="bi bi-chevron-right"></i>
+                            </button>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
         </div>
       </div>
     </div>
@@ -72,6 +114,11 @@ export class UserListComponent implements OnInit {
   private usersService = inject(UsersService);
 
   users = signal<User[]>([]);
+  totalItems = signal<number>(0);
+  currentPage = signal<number>(1);
+  lastPage = signal<number>(1);
+  searchQuery = signal<string>('');
+  private searchTimeout: any;
 
   isModalOpen = signal<boolean>(false);
   selectedUser = signal<User | null>(null);
@@ -80,11 +127,31 @@ export class UserListComponent implements OnInit {
     this.loadUsers();
   }
 
-  loadUsers() {
-    this.usersService.getUsers().subscribe({
-      next: (data) => this.users.set(data),
+  loadUsers(page: number = 1) {
+    const search = this.searchQuery();
+    this.usersService.getUsers(page, 10, search).subscribe({
+      next: (res) => {
+        this.users.set(res.data);
+        this.totalItems.set(res.total);
+        this.currentPage.set(res.page);
+        this.lastPage.set(res.lastPage || 1);
+      },
       error: (err) => console.error(err)
     });
+  }
+
+  onSearch(query: string) {
+    this.searchQuery.set(query);
+    if (this.searchTimeout) clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+      this.loadUsers(1);
+    }, 300);
+  }
+
+  onPageChange(page: number) {
+    if (page >= 1 && page <= this.lastPage()) {
+      this.loadUsers(page);
+    }
   }
 
   openModal() {
@@ -101,7 +168,7 @@ export class UserListComponent implements OnInit {
     this.isModalOpen.set(false);
     this.selectedUser.set(null);
     if (saved) {
-      this.loadUsers();
+      this.loadUsers(this.currentPage());
     }
   }
 }

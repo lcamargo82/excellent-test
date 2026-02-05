@@ -11,6 +11,7 @@ const mockUserRepository = {
     create: jest.fn(),
     save: jest.fn(),
     find: jest.fn(),
+    findAndCount: jest.fn(),
     findOne: jest.fn(),
     findOneBy: jest.fn(),
 };
@@ -67,14 +68,15 @@ describe('UsersService', () => {
     });
 
     describe('findAll', () => {
-        it('should return an array of users', async () => {
+        it('should return paginated result of users', async () => {
             const users = [{ id: '1', name: 'Test User' }] as User[];
-            mockUserRepository.find.mockResolvedValue(users);
+            const total = 1;
+            mockUserRepository.findAndCount.mockResolvedValue([users, total]);
 
             const result = await service.findAll();
 
-            expect(mockUserRepository.find).toHaveBeenCalled();
-            expect(result).toEqual(users);
+            expect(mockUserRepository.findAndCount).toHaveBeenCalled();
+            expect(result).toEqual({ data: users, total, page: 1, lastPage: 1 });
         });
     });
 

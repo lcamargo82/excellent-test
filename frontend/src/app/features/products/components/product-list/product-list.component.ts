@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms'; // Import FormsModule
 import { ProductsService } from '../../services/products.service';
 import { Product } from '../../models/product.model';
 import { AuthService } from '../../../../core/services/auth.service';
@@ -9,7 +10,7 @@ import { ProductModalComponent } from '../product-modal/product-modal.component'
 @Component({
   selector: 'app-product-list',
   standalone: true,
-  imports: [CommonModule, ProductModalComponent],
+  imports: [CommonModule, ProductModalComponent, FormsModule], // Add FormsModule
   template: `
     <div class="container mt-5 animate__animated animate__fadeIn">
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -22,6 +23,17 @@ import { ProductModalComponent } from '../product-modal/product-modal.component'
       </div>
 
       <div class="card shadow border-0 rounded-3">
+        <div class="card-header bg-white py-3 border-0">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input 
+                    type="text" 
+                    class="form-control border-start-0 ps-0" 
+                    placeholder="Buscar produtos..." 
+                    [(ngModel)]="searchQuery" 
+                    (ngModelChange)="onSearch($event)">
+            </div>
+        </div>
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table table-hover table-striped mb-0 align-middle">
@@ -41,15 +53,6 @@ import { ProductModalComponent } from '../product-modal/product-modal.component'
                       @if (product.images.length > 0) {
                         <img [src]="'/uploads/products/' + product.images[0].url.split('/').pop()" 
                              alt="Product" class="rounded shadow-sm" style="width: 50px; height: 50px; object-fit: cover;">
-                        <!-- Note: The URL logic depends on how backend serves files. 
-                             Backend returns absolute path or filename? 
-                             Based on backend code: it generates randomName+ext and saves to disk. 
-                             The backend 'product_images' table has 'url' column. 
-                             Usually we need a static file serving endpoint. 
-                             I'll assume '/uploads/products/' mapping or similar is missing in backend or needs adjustment.
-                             Wait, I didn't verify Static File Serving in Backend! 
-                             For now I will try to display it, but I might need to fix backend main.ts to serve static files.
-                        -->
                       } @else {
                         <div class="bg-secondary bg-opacity-25 rounded d-flex align-items-center justify-content-center text-muted" 
                              style="width: 50px; height: 50px;">
@@ -125,6 +128,8 @@ export class ProductListComponent implements OnInit {
   currentPage = signal<number>(1);
   lastPage = signal<number>(1);
   totalItems = signal<number>(0);
+  searchQuery = signal<string>('');
+  private searchTimeout: any;
 
   isModalOpen = signal<boolean>(false);
   selectedProduct = signal<Product | null>(null);
@@ -135,8 +140,9 @@ export class ProductListComponent implements OnInit {
 
   loadProducts(page: number = 1) {
     const onlyAvailable = !this.isAdmin();
+    const search = this.searchQuery();
     // Default limit is 10 in service, passing it explicitly here to match signature
-    this.productService.getProducts(page, 10, onlyAvailable).subscribe({
+    this.productService.getProducts(page, 10, onlyAvailable, search).subscribe({
       next: (res) => {
         this.products.set(res.data);
         this.currentPage.set(res.page);
@@ -145,6 +151,14 @@ export class ProductListComponent implements OnInit {
       },
       error: (err) => console.error(err)
     });
+  }
+
+  onSearch(query: string) {
+    this.searchQuery.set(query);
+    if (this.searchTimeout) clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+      this.loadProducts(1);
+    }, 300);
   }
 
   deleteProduct(product: Product) {

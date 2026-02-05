@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository, MoreThan, ILike } from 'typeorm';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductImage } from './entities/product-image.entity';
@@ -37,21 +37,34 @@ export class ProductsService {
     }
 
     async findAll(paginationDto: PaginationDto): Promise<{ data: Product[], total: number, page: number, lastPage: number }> {
-        const { page = 1, limit = 10, available } = paginationDto;
+        const { page = 1, limit = 10, available, search } = paginationDto;
 
-        const where: any = {};
-        if (available) {
-            where.stock = MoreThan(0);
-            where.price = MoreThan(0);
-        }
-
-        const [data, total] = await this.productsRepository.findAndCount({
-            where,
+        let findOptions: any = {
             skip: (page - 1) * limit,
             take: limit,
             relations: ['created_by', 'images'],
-        });
+            order: { created_at: 'DESC' }
+        };
 
+        const baseWhere: any = {};
+        if (available) {
+            baseWhere.stock = MoreThan(0);
+            baseWhere.price = MoreThan(0); // Assuming price > 0 check is desired for available products? Or just stock? Keeping consistent with previous logic.
+        }
+
+        if (search) {
+            const where: any[] = [];
+            // OR logic: (name OR description) AND baseWhere
+            where.push({ ...baseWhere, name: ILike(`%${search}%`) });
+            where.push({ ...baseWhere, description: ILike(`%${search}%`) });
+            findOptions.where = where;
+        } else {
+            if (Object.keys(baseWhere).length > 0) {
+                findOptions.where = baseWhere;
+            }
+        }
+
+        const [data, total] = await this.productsRepository.findAndCount(findOptions);
         const lastPage = Math.ceil(total / limit);
 
         return { data, total, page, lastPage };

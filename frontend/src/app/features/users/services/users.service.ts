@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { User, CreateUserDto } from '../models/user.model';
+import { User, CreateUserDto, PaginatedResult } from '../models/user.model';
 
 @Injectable({
     providedIn: 'root'
@@ -10,8 +10,14 @@ export class UsersService {
     private http = inject(HttpClient);
     private apiUrl = '/api/v1/users';
 
-    getUsers(): Observable<User[]> {
-        return this.http.get<User[]>(this.apiUrl);
+    getUsers(page: number = 1, limit: number = 10, search?: string): Observable<PaginatedResult<User>> {
+        let params = new HttpParams()
+            .set('page', page)
+            .set('limit', limit);
+        if (search) {
+            params = params.set('search', search);
+        }
+        return this.http.get<PaginatedResult<User>>(this.apiUrl, { params });
     }
 
     createUser(user: CreateUserDto): Observable<User> {
