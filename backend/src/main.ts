@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { ValidationPipe, VersioningType, BadRequestException } from '@nestjs/common';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { HttpAdapterHost } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -26,7 +26,21 @@ async function bootstrap() {
     defaultVersion: '1',
   });
 
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    transform: true,
+    exceptionFactory: (errors) => {
+      const formattedErrors = errors.reduce((acc, err) => {
+        acc[err.property] = Object.values(err.constraints || {})[0];
+        return acc;
+      }, {});
+
+      return new BadRequestException({
+        message: 'Dados inválidos',
+        errors: formattedErrors,
+      });
+    },
+  }));
 
   const httpAdapter = app.get(HttpAdapterHost);
   const logger = app.get(Logger);

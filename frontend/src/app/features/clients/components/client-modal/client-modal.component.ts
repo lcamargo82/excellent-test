@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ClientsService } from '../../services/clients.service';
 import { IntegrationsService } from '../../../../core/services/integrations.service';
+import { ErrorHandlerService } from '../../../../core/services/error-handler.service';
 import { Client } from '../../models/client.model';
 import { AuthService } from '../../../../core/services/auth.service';
 import { NgxMaskDirective } from 'ngx-mask';
@@ -36,7 +37,7 @@ import Swal from 'sweetalert2';
                       </span>
                     }
                   </div>
-                  <div class="invalid-feedback">CNPJ é obrigatório e deve ser válido.</div>
+                  <div class="invalid-feedback">{{ getErrorMessage('document') }}</div>
                   <small class="text-muted">Digite os 14 dígitos do CNPJ.</small>
                 </div>
 
@@ -44,14 +45,14 @@ import Swal from 'sweetalert2';
                   <label class="form-label">Nome</label>
                   <input type="text" class="form-control" formControlName="name" 
                          [class.is-invalid]="isFieldInvalid('name')">
-                  <div class="invalid-feedback">Nome é obrigatório.</div>
+                  <div class="invalid-feedback">{{ getErrorMessage('name') }}</div>
                 </div>
                 
                 <div class="mb-3">
                   <label class="form-label">Email</label>
                   <input type="email" class="form-control" formControlName="email"
                          [class.is-invalid]="isFieldInvalid('email')">
-                  <div class="invalid-feedback">Email inválido.</div>
+                  <div class="invalid-feedback">{{ getErrorMessage('email') }}</div>
                 </div>
 
                 <div class="mb-3">
@@ -59,7 +60,7 @@ import Swal from 'sweetalert2';
                   <input type="text" class="form-control" formControlName="phone"
                          mask="(00) 0000-0000 || (00) 00000-0000"
                          [class.is-invalid]="isFieldInvalid('phone')">
-                  <div class="invalid-feedback">Telefone é obrigatório.</div>
+                  <div class="invalid-feedback">{{ getErrorMessage('phone') }}</div>
                 </div>
               </form>
             </div>
@@ -83,6 +84,7 @@ export class ClientModalComponent implements OnChanges {
   private fb = inject(FormBuilder);
   private clientService = inject(ClientsService);
   private integrationsService = inject(IntegrationsService);
+  private errorHandler = inject(ErrorHandlerService);
 
   isFetchingCnpj = signal(false);
 
@@ -142,6 +144,18 @@ export class ClientModalComponent implements OnChanges {
     return !!(control && control.invalid && (control.dirty || control.touched));
   }
 
+  getErrorMessage(field: string): string {
+    const control = this.clientForm.get(field);
+    if (!control || !control.errors) return '';
+
+    if (control.hasError('serverError')) return control.getError('serverError');
+    if (control.hasError('required')) return 'Campo obrigatório.';
+    if (control.hasError('email')) return 'Email inválido.';
+    if (control.hasError('minlength')) return `Mínimo de ${control.getError('minlength').requiredLength} caracteres.`;
+
+    return 'Campo inválido.';
+  }
+
   save() {
     if (this.clientForm.invalid) {
       this.clientForm.markAllAsTouched();
@@ -166,7 +180,20 @@ export class ClientModalComponent implements OnChanges {
         this.close.emit(true);
       },
       error: (err) => {
-        Swal.fire('Erro', err.error?.message || 'Ocorreu um erro ao salvar.', 'error');
+        const message = this.errorHandler.getErrorMessage(err);
+        const fieldErrors = this.errorHandler.getFieldErrors(err);
+
+        if (Object.keys(fieldErrors).length > 0) {
+          Object.keys(fieldErrors).forEach(key => {
+            const control = this.clientForm.get(key);
+            if (control) {
+              control.setErrors({ serverError: fieldErrors[key] });
+              control.markAsTouched();
+            }
+          });
+        }
+
+        Swal.fire('Erro', message, 'error');
         console.error(err);
       }
     });

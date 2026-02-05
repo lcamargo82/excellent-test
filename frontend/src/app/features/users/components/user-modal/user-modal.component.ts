@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { UsersService } from '../../services/users.service';
 import { User } from '../../models/user.model';
+import { ErrorHandlerService } from '../../../../core/services/error-handler.service';
 import Swal from 'sweetalert2';
 
 @Component({
-    selector: 'app-user-modal',
-    standalone: true,
-    imports: [CommonModule, ReactiveFormsModule],
-    template: `
+  selector: 'app-user-modal',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule],
+  template: `
     @if (isOpen) {
       <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5)">
         <div class="modal-dialog modal-dialog-centered">
@@ -25,17 +26,17 @@ import Swal from 'sweetalert2';
                   <div class="mb-3">
                     <label class="form-label">Nome</label>
                     <input type="text" class="form-control" formControlName="name" [class.is-invalid]="isFieldInvalid('name')">
-                    <div class="invalid-feedback">Nome é obrigatório.</div>
+                    <div class="invalid-feedback">{{ getErrorMessage('name') }}</div>
                   </div>
                   <div class="mb-3">
                     <label class="form-label">Email</label>
                     <input type="email" class="form-control" formControlName="email" [class.is-invalid]="isFieldInvalid('email')">
-                    <div class="invalid-feedback">Email inválido.</div>
+                    <div class="invalid-feedback">{{ getErrorMessage('email') }}</div>
                   </div>
                   <div class="mb-3">
                     <label class="form-label">Senha</label>
                     <input type="password" class="form-control" formControlName="password" [class.is-invalid]="isFieldInvalid('password')">
-                     <div class="invalid-feedback">Senha é obrigatória (min 6 carac).</div>
+                     <div class="invalid-feedback">{{ getErrorMessage('password') }}</div>
                   </div>
                 } @else {
                   <p class="text-muted">Editando permissões para: <strong>{{ user.name }}</strong></p>
@@ -64,73 +65,98 @@ import Swal from 'sweetalert2';
   `
 })
 export class UserModalComponent implements OnChanges {
-    @Input() user: User | null = null;
-    @Input() isOpen = false;
-    @Output() close = new EventEmitter<boolean>();
+  @Input() user: User | null = null;
+  @Input() isOpen = false;
+  @Output() close = new EventEmitter<boolean>();
 
-    private fb = inject(FormBuilder);
-    private usersService = inject(UsersService);
+  private fb = inject(FormBuilder);
+  private usersService = inject(UsersService);
+  private errorHandler = inject(ErrorHandlerService);
 
-    userForm: FormGroup = this.fb.group({
-        name: [''],
-        email: [''],
-        password: [''],
-        role: ['USER', Validators.required]
+  userForm: FormGroup = this.fb.group({
+    name: [''],
+    email: [''],
+    password: [''],
+    role: ['USER', Validators.required]
+  });
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['isOpen'] && this.isOpen) {
+      this.userForm.reset({ role: 'USER' });
+
+      if (this.user) {
+        // Edit Mode: Only Role is editable (and relevant in this impl)
+        this.userForm.patchValue({ role: this.user.role });
+        this.userForm.get('name')?.clearValidators();
+        this.userForm.get('email')?.clearValidators();
+        this.userForm.get('password')?.clearValidators();
+      } else {
+        // Create Mode: All required
+        this.userForm.get('name')?.setValidators(Validators.required);
+        this.userForm.get('email')?.setValidators([Validators.required, Validators.email]);
+        this.userForm.get('password')?.setValidators([Validators.required, Validators.minLength(6)]);
+      }
+      this.userForm.updateValueAndValidity();
+    }
+  }
+
+  isFieldInvalid(field: string): boolean {
+    const control = this.userForm.get(field);
+    return !!(control && control.invalid && (control.dirty || control.touched));
+  }
+
+  getErrorMessage(field: string): string {
+    const control = this.userForm.get(field);
+    if (!control || !control.errors) return '';
+
+    if (control.hasError('serverError')) return control.getError('serverError');
+    if (control.hasError('required')) return 'Campo obrigatório.';
+    if (control.hasError('email')) return 'Email inválido.';
+    if (control.hasError('minlength')) return `Mínimo de ${control.getError('minlength').requiredLength} caracteres.`;
+
+    return 'Campo inválido.';
+  }
+
+  save() {
+    if (this.userForm.invalid) {
+      this.userForm.markAllAsTouched();
+      return;
+    }
+
+    const val = this.userForm.value;
+    let request$;
+
+    if (this.user) {
+      request$ = this.usersService.updateRole(this.user.id, val.role);
+    } else {
+      request$ = this.usersService.createUser(val);
+    }
+
+    request$.subscribe({
+      next: () => {
+        Swal.fire('Sucesso!', 'Dados salvos.', 'success');
+        this.close.emit(true);
+      },
+      error: (err) => {
+        const message = this.errorHandler.getErrorMessage(err);
+        const fieldErrors = this.errorHandler.getFieldErrors(err);
+
+        if (Object.keys(fieldErrors).length > 0) {
+          Object.keys(fieldErrors).forEach(key => {
+            const control = this.userForm.get(key);
+            if (control) {
+              control.setErrors({ serverError: fieldErrors[key] });
+              control.markAsTouched();
+            }
+          });
+        }
+
+        Swal.fire('Erro', message, 'error');
+      }
     });
+  }
 
-    ngOnChanges(changes: SimpleChanges) {
-        if (changes['isOpen'] && this.isOpen) {
-            this.userForm.reset({ role: 'USER' });
-
-            if (this.user) {
-                // Edit Mode: Only Role is editable (and relevant in this impl)
-                this.userForm.patchValue({ role: this.user.role });
-                this.userForm.get('name')?.clearValidators();
-                this.userForm.get('email')?.clearValidators();
-                this.userForm.get('password')?.clearValidators();
-            } else {
-                // Create Mode: All required
-                this.userForm.get('name')?.setValidators(Validators.required);
-                this.userForm.get('email')?.setValidators([Validators.required, Validators.email]);
-                this.userForm.get('password')?.setValidators([Validators.required, Validators.minLength(6)]);
-            }
-            this.userForm.updateValueAndValidity();
-        }
-    }
-
-    isFieldInvalid(field: string): boolean {
-        const control = this.userForm.get(field);
-        return !!(control && control.invalid && (control.dirty || control.touched));
-    }
-
-    save() {
-        if (this.userForm.invalid) {
-            this.userForm.markAllAsTouched();
-            return;
-        }
-
-        const val = this.userForm.value;
-        let request$;
-
-        if (this.user) {
-            request$ = this.usersService.updateRole(this.user.id, val.role);
-        } else {
-            request$ = this.usersService.createUser(val);
-        }
-
-        request$.subscribe({
-            next: () => {
-                Swal.fire('Sucesso!', 'Dados salvos.', 'success');
-                this.close.emit(true);
-            },
-            error: (err) => {
-                const msg = err.error?.message || 'Erro ao salvar.';
-                Swal.fire('Erro', msg, 'error');
-            }
-        });
-    }
-
-    closeModal() {
-        this.close.emit(false);
-    }
+  closeModal() {
+    this.close.emit(false);
+  }
 }

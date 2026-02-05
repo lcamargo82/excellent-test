@@ -4,6 +4,7 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angula
 import { ProductsService } from '../../services/products.service';
 import { Product } from '../../models/product.model';
 import { AuthService } from '../../../../core/services/auth.service';
+import { ErrorHandlerService } from '../../../../core/services/error-handler.service';
 import Swal from 'sweetalert2';
 import { switchMap, of } from 'rxjs';
 import { NgxMaskDirective } from 'ngx-mask';
@@ -30,7 +31,7 @@ import { NgxMaskDirective } from 'ngx-mask';
                     <label class="form-label">Nome</label>
                     <input type="text" class="form-control" formControlName="name" 
                            [class.is-invalid]="isFieldInvalid('name')">
-                    <div class="invalid-feedback">Nome é obrigatório.</div>
+                    <div class="invalid-feedback">{{ getErrorMessage('name') }}</div>
                   </div>
                   <div class="col-md-3 mb-3">
                     <label class="form-label">Preço</label>
@@ -38,7 +39,7 @@ import { NgxMaskDirective } from 'ngx-mask';
                            mask="separator.2" thousandSeparator="." decimalMarker="," prefix="R$ "
                            [class.is-invalid]="isFieldInvalid('price') || productForm.hasError('priceRequired')">
                     <div class="invalid-feedback">
-                      {{ productForm.hasError('priceRequired') ? 'Preço obrigatório se houver estoque.' : 'Preço inválido.' }}
+                      {{ getErrorMessage('price') || (productForm.hasError('priceRequired') ? 'Preço obrigatório se houver estoque.' : 'Preço inválido.') }}
                     </div>
                   </div>
                   <div class="col-md-3 mb-3">
@@ -47,7 +48,7 @@ import { NgxMaskDirective } from 'ngx-mask';
                            mask="0*"
                            [class.is-invalid]="isFieldInvalid('stock') || productForm.hasError('stockRequired')">
                      <div class="invalid-feedback">
-                      {{ productForm.hasError('stockRequired') ? 'Estoque obrigatório se houver preço.' : 'Estoque inválido.' }}
+                      {{ getErrorMessage('stock') || (productForm.hasError('stockRequired') ? 'Estoque obrigatório se houver preço.' : 'Estoque inválido.') }}
                     </div>
                   </div>
                 </div>
@@ -111,6 +112,7 @@ export class ProductModalComponent implements OnChanges {
   private fb = inject(FormBuilder);
   private productService = inject(ProductsService);
   private authService = inject(AuthService);
+  private errorHandler = inject(ErrorHandlerService);
 
   isAdmin = signal(this.authService.hasRole('ADMIN'));
 
@@ -158,6 +160,18 @@ export class ProductModalComponent implements OnChanges {
   isFieldInvalid(field: string): boolean {
     const control = this.productForm.get(field);
     return !!(control && control.invalid && (control.dirty || control.touched));
+  }
+
+  getErrorMessage(field: string): string {
+    const control = this.productForm.get(field);
+    if (!control || !control.errors) return '';
+
+    if (control.hasError('serverError')) return control.getError('serverError');
+    if (control.hasError('required')) return 'Campo obrigatório.';
+    if (control.hasError('email')) return 'Email inválido.';
+    if (control.hasError('minlength')) return `Mínimo de ${control.getError('minlength').requiredLength} caracteres.`;
+
+    return 'Campo inválido.';
   }
 
 
@@ -236,7 +250,20 @@ export class ProductModalComponent implements OnChanges {
         this.close.emit(true);
       },
       error: (err) => {
-        Swal.fire('Erro', 'Ocorreu um erro ao salvar.', 'error');
+        const message = this.errorHandler.getErrorMessage(err);
+        const fieldErrors = this.errorHandler.getFieldErrors(err);
+
+        if (Object.keys(fieldErrors).length > 0) {
+          Object.keys(fieldErrors).forEach(key => {
+            const control = this.productForm.get(key);
+            if (control) {
+              control.setErrors({ serverError: fieldErrors[key] });
+              control.markAsTouched();
+            }
+          });
+        }
+
+        Swal.fire('Erro', message, 'error');
         console.error(err);
       }
     });
