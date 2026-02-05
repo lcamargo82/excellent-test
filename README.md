@@ -76,3 +76,53 @@ O banco de dados PostgreSQL está acessível na porta `5432`.
 - **Database**: excellent_db
 
 As credenciais estão definidas no arquivo `.env`.
+
+## Testes Automatizados
+
+O projeto inclui uma suíte de testes unitários robusta cobrindo os principais módulos e utilitários.
+
+### Executar Testes Unitários
+
+Para rodar todos os testes:
+
+```bash
+docker exec -it nestjs_backend npm run test
+```
+
+### Verificar Cobertura de Testes
+
+Para gerar o relatório de cobertura (que deve estar acima de 80%):
+
+```bash
+docker exec -it nestjs_backend npm run test:cov
+```
+
+O relatório detalhado pode ser visualizado abrindo `backend/coverage/lcov-report/index.html` no navegador.
+
+## Observabilidade (OpenTelemetry & Datadog)
+
+Este projeto está integrado com OpenTelemetry para rastreamento distribuído (Tracing). Os traces são exportados via protocolo OTLP.
+
+### Integração com Datadog
+
+Para visualizar os traces no Datadog, configure as variáveis de ambiente no `docker-compose.yml` ou no `.env` usado pelo container backend.
+
+**Opção 1: Via Datadog Agent (Recomendado)**
+Se você tem um Datadog Agent rodando na rede (ex: `localhost:4318`):
+
+```env
+OTEL_SERVICE_NAME=excellent-backend
+OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:4318
+```
+
+**Opção 2: Envio Direto (Serverless / Dev)**
+Para enviar diretamente para a API do Datadog (site US):
+
+```env
+OTEL_SERVICE_NAME=excellent-backend
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp.datadoghq.com
+OTEL_EXPORTER_OTLP_HEADERS=DD-API-KEY=<SUA_API_KEY>
+```
+
+Após configurar e reiniciar o backend, as requisições HTTP serão rastreadas e aparecerão no painel **APM > Traces** do Datadog.
+
