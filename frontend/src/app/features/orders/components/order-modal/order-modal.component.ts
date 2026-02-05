@@ -1,11 +1,11 @@
 import { Component, Input, Output, EventEmitter, inject, OnChanges, SimpleChanges, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators, FormsModule, AbstractControl } from '@angular/forms';
 import { OrdersService } from '../../services/orders.service';
 import { ClientsService } from '../../../clients/services/clients.service';
 import { ProductsService } from '../../../products/services/products.service';
 import { AuthService } from '../../../../core/services/auth.service';
-import { Order } from '../../models/order.model'; // DTOs used internally
+import { Order } from '../../models/order.model';
 import { Client } from '../../../clients/models/client.model';
 import { Product } from '../../../products/models/product.model';
 import Swal from 'sweetalert2';
@@ -13,12 +13,12 @@ import Swal from 'sweetalert2';
 @Component({
   selector: 'app-order-modal',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule],
   template: `
     @if (isOpen) {
       <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5)">
-        <div class="modal-dialog modal-dialog-centered modal-xl">
-          <div class="modal-content border-0 shadow-lg" style="min-height: 600px;">
+        <div class="modal-dialog modal-dialog-centered modal-xl"> <!-- Extra Large Modal -->
+          <div class="modal-content border-0 shadow-lg" style="min-height: 80vh;">
             <div class="modal-header bg-primary text-white">
               <h5 class="modal-title">
                 @if (order) {
@@ -29,11 +29,12 @@ import Swal from 'sweetalert2';
               </h5>
               <button type="button" class="btn-close btn-close-white" (click)="closeModal()"></button>
             </div>
-            <div class="modal-body bg-light">
+            
+            <div class="modal-body bg-light p-0">
               
               <!-- VIEW MODE -->
               @if (order) {
-                <div class="container-fluid">
+                <div class="container-fluid p-4">
                   <div class="row mb-4">
                     <div class="col-md-6">
                       <h6 class="text-uppercase text-muted small fw-bold">Cliente</h6>
@@ -75,91 +76,170 @@ import Swal from 'sweetalert2';
                 </div>
               } 
               
-              <!-- CREATE MODE -->
+              <!-- CREATE MODE: RICH UI -->
               @else {
-                <form [formGroup]="orderForm">
-                  <div class="row mb-4">
-                    <div class="col-md-6">
-                      <label class="form-label fw-bold">Cliente</label>
-                      @if (isAdmin()) {
-                        <select class="form-select" formControlName="clientId" [class.is-invalid]="isFieldInvalid('clientId')">
-                          <option value="">Selecione um cliente...</option>
-                          @for (client of clients(); track client.id) {
-                            <option [value]="client.id">{{ client.name }}</option>
-                          }
-                        </select>
-                      } @else {
-                        <input type="text" class="form-control bg-light" [value]="currentClientName() || 'Buscando perfil...'" readonly>
-                        <input type="hidden" formControlName="clientId">
-                      }
-                      <div class="invalid-feedback">Cliente é obrigatório.</div>
+                <div class="d-flex h-100 flex-column flex-lg-row">
+                  
+                  <!-- LEFT SIDE: PRODUCT CATALOG (65%) -->
+                  <div class="flex-grow-1 p-3 border-end bg-white overflow-auto" style="flex-basis: 65%;">
+                    <div class="d-flex justify-content-between align-items-center mb-3 sticky-top bg-white py-2" style="z-index: 10;">
+                        <h5 class="mb-0 fw-bold text-secondary"><i class="bi bi-box-seam me-2"></i>Catálogo</h5>
+                        
+                        <!-- Client Selection in Create Mode (If Admin) -->
+                         @if (isAdmin()) {
+                            <div class="w-50">
+                                <select class="form-control form-select-sm" [formControl]="clientIdControl" [class.is-invalid]="clientIdControl.invalid && clientIdControl.touched">
+                                    <option value="">Selecione o Cliente...</option>
+                                    @for (client of clients(); track client.id) {
+                                        <option [value]="client.id">{{ client.name }}</option>
+                                    }
+                                </select>
+                            </div>
+                        } @else {
+                             <div class="text-end">
+                                <small class="text-muted d-block">Cliente</small>
+                                <span class="fw-bold">{{ currentClientName() }}</span>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Search Bar -->
+                    <div class="input-group mb-3 sticky-top bg-white" style="top: 50px; z-index: 10;">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control border-start-0 bg-light" placeholder="Buscar produtos..." 
+                            [(ngModel)]="catalogSearch" (ngModelChange)="onCatalogSearch($event)">
+                    </div>
+
+                     <!-- Product Grid -->
+                    <div class="row g-3">
+                        @for (prod of catalogProducts(); track prod.id) {
+                            <div class="col-md-4 col-sm-6">
+                                <div class="card h-100 border-0 shadow-sm product-card position-relative">
+                                     <!-- Stock Badge -->
+                                     <span class="position-absolute top-0 end-0 badge m-2" 
+                                        [class.bg-success]="prod.stock > 10" 
+                                        [class.bg-warning]="prod.stock <= 10 && prod.stock > 0" 
+                                        [class.bg-danger]="prod.stock === 0">
+                                        {{ prod.stock }} un
+                                     </span>
+
+                                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 120px;">
+                                        @if (prod.images && prod.images.length > 0) {
+                                            <img [src]="'/uploads/products/' + prod.images[0].url.split('/').pop()" 
+                                                alt="Prod" class="h-100 w-100 object-fit-cover rounded-top"
+                                                onerror="this.src='placeholder.png'; this.parentElement.innerHTML='<i class=\'bi bi-image text-muted fs-1\'></i>'">
+                                        } @else {
+                                            <i class="bi bi-image text-muted fs-1"></i>
+                                        }
+                                    </div>
+                                    <div class="card-body p-2 d-flex flex-column">
+                                        <h6 class="card-title text-truncate mb-1" [title]="prod.name">{{ prod.name }}</h6>
+                                        <p class="card-text text-primary fw-bold mb-2">{{ prod.price | currency:'BRL' }}</p>
+                                        <button class="btn btn-sm btn-outline-primary mt-auto w-100" 
+                                            (click)="addToOrder(prod)" 
+                                            [disabled]="prod.stock === 0">
+                                            <i class="bi bi-plus-lg"></i> Adicionar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        } @empty {
+                            <div class="col-12 text-center py-5 text-muted">
+                                <i class="bi bi-search display-6 mb-3 d-block"></i>
+                                Nenhum produto encontrado.
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                         <span class="text-muted small">
+                            Pag {{ catalogPage() }} de {{ catalogLastPage() }}
+                         </span>
+                         <nav>
+                            <ul class="pagination pagination-sm mb-0">
+                                <li class="page-item" [class.disabled]="catalogPage() === 1">
+                                    <button class="page-link" (click)="loadCatalog(catalogPage() - 1)">Ant</button>
+                                </li>
+                                <li class="page-item" [class.disabled]="catalogPage() === catalogLastPage()">
+                                    <button class="page-link" (click)="loadCatalog(catalogPage() + 1)">Prox</button>
+                                </li>
+                            </ul>
+                         </nav>
                     </div>
                   </div>
 
-                  <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h6 class="fw-bold mb-0">Produtos</h6>
-                    <button type="button" class="btn btn-sm btn-outline-primary" (click)="addItem()">
-                      <i class="bi bi-plus-lg"></i> Adicionar Item
-                    </button>
-                  </div>
+                  <!-- RIGHT SIDE: CART (35%) -->
+                  <div class="d-flex flex-column bg-light border-start" style="flex-basis: 35%; min-width: 300px;">
+                    <div class="p-3 bg-white border-bottom shadow-sm">
+                        <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-cart4 me-2"></i>Seu Pedido</h5>
+                    </div>
+                    
+                    <div class="flex-grow-1 overflow-auto p-3">
+                        @if (items.controls.length === 0) {
+                            <div class="h-100 d-flex flex-column align-items-center justify-content-center text-muted opacity-50">
+                                <i class="bi bi-cart-x display-1 mb-3"></i>
+                                <p>Carrinho vazio</p>
+                            </div>
+                        } @else {
+                             <div class="list-group list-group-flush card shadow-sm border-0">
+                                @for (itemControl of items.controls; track $index; let i = $index) {
+                                    <div class="list-group-item p-2">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div class="me-2 text-truncate">
+                                                <div class="fw-bold text-truncate" [title]="getProductName(i)">{{ getProductName(i) }}</div>
+                                                <small class="text-muted">{{ getProductPrice(i) | currency:'BRL' }} un</small>
+                                            </div>
+                                            <div class="text-end">
+                                                <div class="fw-bold">{{ getItemSubtotal(i) | currency:'BRL' }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mt-2 bg-light rounded p-1">
+                                            <div class="input-group input-group-sm w-auto">
+                                                <button class="btn btn-outline-secondary px-2" type="button" (click)="adjustQuantity(i, -1)">-</button>
+                                                <input type="text" class="form-control text-center px-0" style="width: 40px;" [value]="getQuantity(i)" readonly>
+                                                <button class="btn btn-outline-secondary px-2" type="button" (click)="adjustQuantity(i, 1)">+</button>
+                                            </div>
+                                            <button class="btn btn-sm text-danger" (click)="removeItem(i)" title="Remover">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                             </div>
+                        }
+                    </div>
 
-                  <div class="card border-0 shadow-sm p-3 mb-3" style="max-height: 300px; overflow-y: auto;">
-                    <div formArrayName="items">
-                      @for (item of items.controls; track $index; let i = $index) {
-                        <div [formGroupName]="i" class="row g-2 align-items-center mb-2 pb-2 border-bottom">
-                          <div class="col-md-6">
-                            <label class="form-label small" *ngIf="i===0">Produto</label>
-                            <select class="form-select form-select-sm" formControlName="productId">
-                              <option value="">Selecione...</option>
-                              @for (prod of products(); track prod.id) {
-                                <option [value]="prod.id" [disabled]="prod.stock === 0">
-                                  {{ prod.name }} (R$ {{ prod.price | number:'1.2-2' }})
-                                </option>
-                              }
-                            </select>
-                          </div>
-                          <div class="col-md-2">
-                            <label class="form-label small" *ngIf="i===0">Qtd</label>
-                            <input type="number" class="form-control form-control-sm" formControlName="quantity" min="1">
-                          </div>
-                          <div class="col-md-3 text-end">
-                            <label class="form-label small" *ngIf="i===0">Subtotal</label>
-                            <div class="fw-bold pt-1">{{ getItemSubtotal(i) | currency:'BRL' }}</div>
-                          </div>
-                          <div class="col-md-1 text-end">
-                             <label class="d-block small" *ngIf="i===0">&nbsp;</label>
-                            <button type="button" class="btn btn-sm text-danger" (click)="removeItem(i)">
-                              <i class="bi bi-trash"></i>
-                            </button>
-                          </div>
-                        </div>
-                      }
+                    <div class="p-3 bg-white border-top shadow-lg z-index-10">
+                         <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="text-muted h6 mb-0">Total</span>
+                            <span class="fw-bold h3 mb-0 text-success">{{ calculateTotal() | currency:'BRL' }}</span>
+                         </div>
+                         <div class="d-grid gap-2">
+                             @if (!order) {
+                                <button type="button" class="btn btn-lg btn-success" 
+                                    (click)="save()" 
+                                    [disabled]="isSaveDisabled()">
+                                    <i class="bi bi-check-lg me-1"></i> Finalizar Pedido
+                                </button>
+                             }
+                         </div>
                     </div>
                   </div>
 
-                  <div class="row justify-content-end">
-                    <div class="col-md-4 text-end">
-                      <h4 class="fw-bold text-primary">Total: {{ calculateTotal() | currency:'BRL' }}</h4>
-                    </div>
-                  </div>
-
-                </form>
+                </div>
               }
-
             </div>
-            <div class="modal-footer bg-white">
-              <button type="button" class="btn btn-secondary" (click)="closeModal()">Fechar</button>
-              @if (!order) {
-                <button type="button" class="btn btn-success" (click)="save()" [disabled]="orderForm.invalid || items.length === 0">
-                  <i class="bi bi-check-lg me-1"></i> Finalizar Pedido
-                </button>
-              }
-            </div>
+            
           </div>
         </div>
       </div>
     }
-  `
+  `,
+  styles: [`
+    .product-card { transition: transform 0.2s; }
+    .product-card:hover { transform: translateY(-2px); }
+  `]
 })
 export class OrderModalComponent implements OnChanges {
   @Input() order: Order | null = null;
@@ -172,94 +252,154 @@ export class OrderModalComponent implements OnChanges {
   private productsService = inject(ProductsService);
   private authService = inject(AuthService);
 
-  // Data for Selects
-  clients = signal<Client[]>([]);
-  products = signal<Product[]>([]);
+  // Catalog State
+  catalogProducts = signal<Product[]>([]);
+  catalogPage = signal<number>(1);
+  catalogLastPage = signal<number>(1);
+  catalogTotal = signal<number>(0);
+  catalogSearch = signal<string>('');
+  private searchTimeout: any;
 
+  // Client State
+  clients = signal<Client[]>([]);
   isAdmin = computed(() => this.authService.currentUser()?.role === 'ADMIN');
   currentClientName = signal<string>('');
 
-  orderForm: FormGroup = this.fb.group({
-    clientId: ['', Validators.required],
-    items: this.fb.array([], Validators.required)
-  });
+  // Create Form
+  clientIdControl = this.fb.control<string>('', Validators.required);
+  itemsFormArray = this.fb.array([], Validators.required);
 
-  get items() {
-    return this.orderForm.get('items') as FormArray;
-  }
+  // Helper to map product ID to details for the Cart view
+  private productDetailsMap = new Map<string, Product>();
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['isOpen'] && this.isOpen) {
       if (!this.order) {
-        // Create Mode: Reset and Load Data
-        this.orderForm.reset();
-        this.items.clear();
-        this.addItem(); // Start with one row
+        // Create Mode - Reset
+        this.clientIdControl.reset();
+        this.itemsFormArray.clear();
+        this.productDetailsMap.clear();
+        this.catalogSearch.set('');
         this.loadDependencies();
       }
     }
   }
 
+  get items() {
+    return this.itemsFormArray;
+  }
+
   loadDependencies() {
-    // Load Clients only for Admin
     if (this.isAdmin()) {
-      this.clientsService.getClients(1, 100).subscribe(res => {
-        this.clients.set(res.data);
-      });
+      this.clientsService.getClients(1, 100).subscribe(res => this.clients.set(res.data));
     } else {
-      // For USER, load their own client profile
       this.clientsService.getClientMe().subscribe(client => {
         if (client) {
           this.currentClientName.set(client.name);
-          this.orderForm.patchValue({ clientId: client.id });
+          this.clientIdControl.setValue(client.id);
         } else {
-          Swal.fire('Aviso', 'Perfil de cliente não encontrado. Entre em contato com o suporte.', 'warning');
+          Swal.fire('Erro', 'Perfil de cliente não encontrado', 'error');
         }
       });
     }
-    // Load Products
+
+    this.loadCatalog(1);
+  }
+
+  loadCatalog(page: number = 1) {
     const onlyAvailable = !this.isAdmin();
-    this.productsService.getProducts(1, 100, onlyAvailable).subscribe(res => {
-      this.products.set(res.data);
+    const search = this.catalogSearch();
+    this.productsService.getProducts(page, 9, onlyAvailable, search).subscribe(res => {
+      this.catalogProducts.set(res.data);
+      this.catalogPage.set(res.page);
+      this.catalogLastPage.set(res.lastPage);
+      this.catalogTotal.set(res.total);
+
+      res.data.forEach(p => this.productDetailsMap.set(p.id, p));
     });
   }
 
-  createItem(): FormGroup {
-    return this.fb.group({
-      productId: ['', Validators.required],
-      quantity: [1, [Validators.required, Validators.min(1)]]
-    });
+  onCatalogSearch(query: string) {
+    this.catalogSearch.set(query);
+    if (this.searchTimeout) clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+      this.loadCatalog(1);
+    }, 300);
   }
 
-  addItem() {
-    this.items.push(this.createItem());
+  addToOrder(product: Product) {
+    if (product.stock <= 0) return;
+
+    // Iterate controls safely
+    const index = this.itemsFormArray.controls.findIndex((c: AbstractControl) => c.value.productId === product.id);
+
+    if (index >= 0) {
+      this.adjustQuantity(index, 1);
+    } else {
+      this.productDetailsMap.set(product.id, product);
+
+      const group = this.fb.group({
+        productId: [product.id, Validators.required],
+        quantity: [1, [Validators.required, Validators.min(1)]]
+      });
+
+      // Cast to any to bypass strict type checking annoyance with FormArray push if inference failure
+      this.itemsFormArray.push(group as any);
+
+      const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 1000,
+        timerProgressBar: true
+      });
+      Toast.fire({ icon: 'success', title: 'Adicionado!' });
+    }
+  }
+
+  adjustQuantity(index: number, delta: number) {
+    const control = this.items.at(index);
+    const currentQty = control.get('quantity')?.value || 0;
+    const newQty = currentQty + delta;
+
+    const prodId = control.get('productId')?.value;
+    const product = this.productDetailsMap.get(prodId);
+
+    if (newQty < 1) return;
+    if (product && newQty > product.stock) {
+      Swal.fire({
+        toast: true, position: 'top', icon: 'warning',
+        title: `Estoque máximo: ${product.stock}`, timer: 2000, showConfirmButton: false
+      });
+      return;
+    }
+
+    control.patchValue({ quantity: newQty });
   }
 
   removeItem(index: number) {
     this.items.removeAt(index);
   }
 
-  getItemSubtotal(index: number): number {
-    const itemGroup = this.items.at(index) as FormGroup;
-    const prodId = itemGroup.get('productId')?.value;
-    const qty = itemGroup.get('quantity')?.value || 0;
-
-    const product = this.products().find(p => p.id === prodId);
-    return product ? product.price * qty : 0;
+  getProductName(index: number): string {
+    const val = this.items.at(index).value as any;
+    return this.productDetailsMap.get(val.productId)?.name || 'Carregando...';
   }
 
-  grandTotal = computed(() => {
-    // This needs to React to form changes. Computed signals on form values requires hooking into valueChanges.
-    // However, I can't easily make a Signal from FormArray valueChanges without `toSignal`.
-    // Instead I'll just use a getter or simple method called from template? 
-    // Template expression {{ grandTotal() }} works if grandTotal is a signal.
-    // I will implement a simpler getter for now, as Angular change detection will call it.
-    // BUT BETTER: Listen to valueChanges.
-    return 0; // Placeholder, I'll implement `calculateTotal` method.
-  });
+  getProductPrice(index: number): number {
+    const val = this.items.at(index).value as any;
+    return this.productDetailsMap.get(val.productId)?.price || 0;
+  }
 
-  // Since `computed` with Forms is tricky without updates, I'll use a method called by template or update a signal on valueChanges.
-  // I'll use a method and let Angular dirty check it (cheap math).
+  getQuantity(index: number): number {
+    const val = this.items.at(index).value as any;
+    return val.quantity;
+  }
+
+  getItemSubtotal(index: number): number {
+    return this.getProductPrice(index) * this.getQuantity(index);
+  }
+
   calculateTotal(): number {
     let total = 0;
     for (let i = 0; i < this.items.length; i++) {
@@ -268,24 +408,22 @@ export class OrderModalComponent implements OnChanges {
     return total;
   }
 
-  // Overriding the signal property with the method for the template to work cleanly
-  // Actually, I'll replace `grandTotal()` in template with `calculateTotal()`.
-
-  isFieldInvalid(field: string): boolean {
-    const control = this.orderForm.get(field);
-    return !!(control && control.invalid && (control.dirty || control.touched));
+  isSaveDisabled(): boolean {
+    return this.items.length === 0 || this.clientIdControl.invalid;
   }
 
   save() {
-    if (this.orderForm.invalid || this.items.length === 0) {
-      this.orderForm.markAllAsTouched();
+    if (this.isSaveDisabled()) {
+      this.clientIdControl.markAsTouched();
       return;
     }
 
-    const formValue = this.orderForm.value;
+    const clientId = this.clientIdControl.value;
+    if (!clientId) return; // Should be handled by valid check but TS needs it
+
     const dto = {
-      clientId: formValue.clientId,
-      items: formValue.items.map((i: any) => ({
+      clientId: clientId,
+      items: this.itemsFormArray.value.map((i: any) => ({
         productId: i.productId,
         quantity: i.quantity
       }))
@@ -303,7 +441,6 @@ export class OrderModalComponent implements OnChanges {
         this.close.emit(true);
       },
       error: (err) => {
-        // Backend specific error handling (e.g. Stock insufficient)
         const msg = err.error?.message || 'Ocorreu um erro ao salvar.';
         Swal.fire('Erro', msg, 'error');
       }

@@ -69,7 +69,7 @@ export class OrdersService {
         });
     }
 
-    async findAll(paginationDto: PaginationDto): Promise<{ data: Order[], total: number, page: number, lastPage: number }> {
+    async findAll(paginationDto: PaginationDto, user?: any): Promise<{ data: Order[], total: number, page: number, lastPage: number }> {
         const { page = 1, limit = 10, search } = paginationDto;
 
         let findOptions: any = {
@@ -83,14 +83,30 @@ export class OrdersService {
             findOptions.where = [
                 // Filter by Client Name
                 { client: { name: ILike(`%${search}%`) } },
-                // Filter by Order ID (needs to be valid UUID or we can try simple cast if postgres supports it, 
-                // but usually better to stick to client name or exact ID. 
-                // However, let's try assuming user types alphanumeric. 
-                // TypeORM might complain if we try ILIKE on uuid column without cast.
-                // For safety and simplicity in this iteration, I'll filter by Client Name and maybe exact ID if it matches UUID format?
-                // Or just try ILike on ID, Postgres often casts automatically for LIKE.
                 { id: ILike(`%${search}%`) }
             ];
+
+            // If user is restricted, we need to enforce that ON TOP of search
+            // But TypeORM array 'where' is OR. We need AND (search OR search) AND (user_filter)
+            // Easier way: map the array to include the user restriction
+            if (user && user.role === 'USER') {
+                findOptions.where = findOptions.where.map((condition: any) => ({
+                    ...condition,
+                    client: {
+                        ...(condition.client || {}),
+                        created_by: { id: user.id }
+                    }
+                }));
+            }
+        } else {
+            // Logic without search but WITH potential user restriction
+            if (user && user.role === 'USER') {
+                findOptions.where = {
+                    client: {
+                        created_by: { id: user.id }
+                    }
+                };
+            }
         }
 
         const [data, total] = await this.ordersRepository.findAndCount(findOptions);

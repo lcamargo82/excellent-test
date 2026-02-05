@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Delete, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, ParseUUIDPipe, Query, UseGuards, Request } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ApiBearerAuth, ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
@@ -23,8 +23,8 @@ export class OrdersController {
 
     @Get()
     @ApiOperation({ summary: 'List all orders' })
-    findAll(@Query() paginationDto: PaginationDto) {
-        return this.ordersService.findAll(paginationDto);
+    findAll(@Query() paginationDto: PaginationDto, @Request() req) {
+        return this.ordersService.findAll(paginationDto, req.user);
     }
 
     @Get(':id')
