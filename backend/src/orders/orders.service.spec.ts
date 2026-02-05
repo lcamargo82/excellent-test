@@ -113,8 +113,9 @@ describe('OrdersService', () => {
             expect(await service.findAll({ page: 1, limit: 10 })).toEqual(result);
         });
 
-        it('should filter orders by user if role is USER', async () => {
-            const user = { id: 'u1', role: 'USER' };
+        // Salesperson model: USER should see all orders, so no filtering by created_by
+        it('should NOT filter orders by user even if role is USER', async () => {
+            const user = { userId: 'u1', role: 'USER' };
             mockOrderRepository.findAndCount.mockResolvedValue([[], 0]);
 
             await service.findAll({ page: 1, limit: 10 }, user);
@@ -123,8 +124,8 @@ describe('OrdersService', () => {
                 skip: 0,
                 take: 10,
                 relations: ['client', 'items', 'items.product', 'client.created_by'],
-                order: { created_at: 'DESC' },
-                where: { client: { created_by: { id: 'u1' } } }
+                order: { created_at: 'DESC' }
+                // No 'where' clause restricted to user
             };
 
             expect(mockOrderRepository.findAndCount).toHaveBeenCalledWith(expectedFindOptions);

@@ -85,22 +85,16 @@ import Swal from 'sweetalert2';
                     <div class="d-flex justify-content-between align-items-center mb-3 sticky-top bg-white py-2" style="z-index: 10;">
                         <h5 class="mb-0 fw-bold text-secondary"><i class="bi bi-box-seam me-2"></i>Catálogo</h5>
                         
-                        <!-- Client Selection in Create Mode (If Admin) -->
-                         @if (isAdmin()) {
-                            <div class="w-50">
-                                <select class="form-control form-select-sm" [formControl]="clientIdControl" [class.is-invalid]="clientIdControl.invalid && clientIdControl.touched">
-                                    <option value="">Selecione o Cliente...</option>
-                                    @for (client of clients(); track client.id) {
-                                        <option [value]="client.id">{{ client.name }}</option>
-                                    }
-                                </select>
-                            </div>
-                        } @else {
-                             <div class="text-end">
-                                <small class="text-muted d-block">Cliente</small>
-                                <span class="fw-bold">{{ currentClientName() }}</span>
-                            </div>
-                        }
+                        <!-- Client Selection for ALL Users (Salesperson Model) -->
+                        <div class="w-50">
+                            <label class="form-label small text-muted mb-0">Cliente</label>
+                            <select class="form-control form-select-sm" [formControl]="clientIdControl" [class.is-invalid]="clientIdControl.invalid && clientIdControl.touched">
+                                <option value="" disabled selected>Selecione um cliente...</option>
+                                @for (client of clients(); track client.id) {
+                                    <option [value]="client.id">{{ client.name }}</option>
+                                }
+                            </select>
+                        </div>
                     </div>
 
                     <!-- Search Bar -->
@@ -290,24 +284,14 @@ export class OrderModalComponent implements OnChanges {
   }
 
   loadDependencies() {
-    if (this.isAdmin()) {
-      this.clientsService.getClients(1, 100).subscribe(res => this.clients.set(res.data));
-    } else {
-      this.clientsService.getClientMe().subscribe(client => {
-        if (client) {
-          this.currentClientName.set(client.name);
-          this.clientIdControl.setValue(client.id);
-        } else {
-          Swal.fire('Erro', 'Perfil de cliente não encontrado', 'error');
-        }
-      });
-    }
+    // Fetch clients for EVERYONE now (Salesperson model)
+    this.clientsService.getClients(1, 100).subscribe(res => this.clients.set(res.data));
 
     this.loadCatalog(1);
   }
 
   loadCatalog(page: number = 1) {
-    const onlyAvailable = !this.isAdmin();
+    const onlyAvailable = false; // Salesperson should see all products
     const search = this.catalogSearch();
     this.productsService.getProducts(page, 9, onlyAvailable, search).subscribe(res => {
       this.catalogProducts.set(res.data);

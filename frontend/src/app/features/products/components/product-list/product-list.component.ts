@@ -139,7 +139,7 @@ export class ProductListComponent implements OnInit {
   }
 
   loadProducts(page: number = 1) {
-    const onlyAvailable = !this.isAdmin();
+    const onlyAvailable = false; // Salesperson should see all products, even zero stock
     const search = this.searchQuery();
     // Default limit is 10 in service, passing it explicitly here to match signature
     this.productService.getProducts(page, 10, onlyAvailable, search).subscribe({

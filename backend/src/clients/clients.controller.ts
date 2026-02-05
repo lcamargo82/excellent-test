@@ -33,7 +33,7 @@ export class ClientsController {
     }
 
     @Get()
-    @Roles('ADMIN')
+    // @Roles('ADMIN') - Removed to allow Salespeople (USER) to list clients
     @ApiOperation({ summary: 'List all clients' })
     @ApiResponse({ status: 200, description: 'Return all clients.' })
     findAll(@Query() paginationDto: PaginationDto) {

@@ -85,28 +85,6 @@ export class OrdersService {
                 { client: { name: ILike(`%${search}%`) } },
                 { id: ILike(`%${search}%`) }
             ];
-
-            // If user is restricted, we need to enforce that ON TOP of search
-            // But TypeORM array 'where' is OR. We need AND (search OR search) AND (user_filter)
-            // Easier way: map the array to include the user restriction
-            if (user && user.role === 'USER') {
-                findOptions.where = findOptions.where.map((condition: any) => ({
-                    ...condition,
-                    client: {
-                        ...(condition.client || {}),
-                        created_by: { id: user.id }
-                    }
-                }));
-            }
-        } else {
-            // Logic without search but WITH potential user restriction
-            if (user && user.role === 'USER') {
-                findOptions.where = {
-                    client: {
-                        created_by: { id: user.id }
-                    }
-                };
-            }
         }
 
         const [data, total] = await this.ordersRepository.findAndCount(findOptions);
