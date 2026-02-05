@@ -1,0 +1,63 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # Job de Qualidade: Roda testes e linters
+  quality-assurance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # BACKEND CI
+      - name: Install Backend Dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Run Backend Lint
+        working-directory: ./backend
+        run: npm run lint
+
+      - name: Run Backend Tests
+        working-directory: ./backend
+        run: npm run test
+
+      # FRONTEND CI
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build Frontend (Test Build)
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Run Frontend Tests
+        working-directory: ./frontend
+        run: npm run test -- --watch=false --browsers=ChromeHeadless
+
+  # Job de Deploy (Só roda se os testes passarem e for na main)
+  deploy-backend:
+    needs: quality-assurance
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deploy
+        # Se você configurou o Deploy Hook no Render, use este passo.
+        # Caso contrário, o Render pode estar configurado para "Auto-Deploy" e este passo é opcional
+        # (mas o Deploy Hook garante que só fazemos deploy se o CI passar).
+        if: env.RENDER_DEPLOY_HOOK_URL != ''
+        run: |
+          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
