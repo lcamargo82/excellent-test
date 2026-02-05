@@ -23,10 +23,23 @@ import { ProductImage } from './products/entities/product-image.entity';
           context: 'HTTP',
         }),
         transport: {
-          target: 'pino-pretty',
-          options: {
-            singleLine: true,
-          },
+          targets: [
+            {
+              target: 'pino-pretty',
+              options: {
+                singleLine: true,
+              },
+            },
+            {
+              target: 'pino-roll',
+              options: {
+                file: './logs/app.log',
+                frequency: 'daily',
+                mkdir: true,
+                size: '10m',
+              },
+            },
+          ],
         },
         // Secure sensitive headers
         redact: ['req.headers.authorization', 'req.headers.cookie'],
