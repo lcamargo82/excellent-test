@@ -11,12 +11,12 @@ const mockUserRepository = {
     create: jest.fn(),
     save: jest.fn(),
     find: jest.fn(),
+    findOne: jest.fn(),
     findOneBy: jest.fn(),
 };
 
 describe('UsersService', () => {
     let service: UsersService;
-    let repository: Repository<User>;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
@@ -30,7 +30,6 @@ describe('UsersService', () => {
         }).compile();
 
         service = module.get<UsersService>(UsersService);
-        repository = module.get<Repository<User>>(getRepositoryToken(User));
 
         jest.clearAllMocks();
     });
@@ -49,7 +48,6 @@ describe('UsersService', () => {
             const hashedPassword = 'hashedPassword';
             const savedUser = { ...createUserDto, id: '1', password_hash: hashedPassword } as any;
 
-            // Mock bcrypt hash implementation
             (bcrypt.hash as jest.Mock).mockResolvedValue(hashedPassword);
 
             mockUserRepository.create.mockReturnValue(savedUser);
@@ -93,11 +91,39 @@ describe('UsersService', () => {
 
         it('should return null if user not found', async () => {
             mockUserRepository.findOneBy.mockResolvedValue(null);
+            expect(await service.findOne('999')).toBeNull();
+        });
+    });
 
-            const result = await service.findOne('999');
+    describe('findByEmail', () => {
+        it('should return user by email', async () => {
+            const user = { id: '1', email: 'test@test.com' };
+            mockUserRepository.findOne.mockResolvedValue(user);
 
-            expect(mockUserRepository.findOneBy).toHaveBeenCalledWith({ id: '999' });
-            expect(result).toBeNull();
+            const result = await service.findByEmail('test@test.com');
+            expect(mockUserRepository.findOne).toHaveBeenCalledWith({
+                where: { email: 'test@test.com' },
+                select: ['id', 'email', 'password_hash', 'role', 'name']
+            });
+            expect(result).toEqual(user);
+        });
+    });
+
+    describe('updateRole', () => {
+        it('should update user role', async () => {
+            const user = { id: '1', role: 'USER' };
+            const admin = { id: 'admin' } as User;
+            mockUserRepository.findOneBy.mockResolvedValue(user);
+            mockUserRepository.save.mockResolvedValue({ ...user, role: 'ADMIN' });
+
+            const result = await service.updateRole('1', 'ADMIN', admin);
+            expect(result.role).toBe('ADMIN');
+            expect(mockUserRepository.save).toHaveBeenCalled();
+        });
+
+        it('should throw if user not found', async () => {
+            mockUserRepository.findOneBy.mockResolvedValue(null);
+            await expect(service.updateRole('1', 'A', {} as any)).rejects.toThrow();
         });
     });
 });

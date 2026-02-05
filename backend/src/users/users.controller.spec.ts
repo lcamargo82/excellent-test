@@ -3,10 +3,13 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { User } from './entities/user.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 
 const mockUsersService = {
     create: jest.fn(),
     findAll: jest.fn(),
+    updateRole: jest.fn(),
 };
 
 describe('UsersController', () => {
@@ -22,7 +25,12 @@ describe('UsersController', () => {
                     useValue: mockUsersService,
                 },
             ],
-        }).compile();
+        })
+            .overrideGuard(JwtAuthGuard)
+            .useValue({ canActivate: () => true })
+            .overrideGuard(RolesGuard)
+            .useValue({ canActivate: () => true })
+            .compile();
 
         controller = module.get<UsersController>(UsersController);
         service = module.get<UsersService>(UsersService);
@@ -61,6 +69,16 @@ describe('UsersController', () => {
 
             expect(service.findAll).toHaveBeenCalled();
             expect(result).toEqual(users);
+        });
+    });
+
+    describe('updateRole', () => {
+        it('should update role', async () => {
+            const req = { user: { id: 'admin' } };
+            mockUsersService.updateRole.mockResolvedValue({});
+
+            await controller.updateRole('1', 'ADMIN', req);
+            expect(service.updateRole).toHaveBeenCalledWith('1', 'ADMIN', req.user);
         });
     });
 });

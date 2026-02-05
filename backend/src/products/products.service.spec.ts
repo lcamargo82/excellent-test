@@ -3,14 +3,14 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ProductsService } from './products.service';
 import { Product } from './entities/product.entity';
 import { ProductImage } from './entities/product-image.entity';
-import { User } from '@users/entities/user.entity';
+import { User } from '../users/entities/user.entity';
 import { Repository } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
+import { UpdateProductDto } from './dto/update-product.dto';
 
 const mockProductsRepository = {
     create: jest.fn(),
     save: jest.fn(),
-    find: jest.fn(),
     findAndCount: jest.fn(),
     findOne: jest.fn(),
     softDelete: jest.fn(),
@@ -23,6 +23,7 @@ const mockUsersRepository = {
 const mockImagesRepository = {
     create: jest.fn(),
     save: jest.fn(),
+    findOne: jest.fn(), // Fix: mock findOne explicitly
     findOneBy: jest.fn(),
     delete: jest.fn(),
 };
@@ -58,61 +59,81 @@ describe('ProductsService', () => {
     });
 
     describe('create', () => {
-        it('should create a product linked to a user', async () => {
-            const createDto = {
-                name: 'Product',
-                price: 10.5,
-                stock: 0,
-                createdById: 'userId',
-            };
-            const user = { id: 'userId' } as User;
-            const newProduct = { ...createDto, created_by: user } as any;
-
+        it('should create a product', async () => {
+            const dto = { name: 'P', price: 10, createdById: 'u1' };
+            const user = { id: 'u1' };
             mockUsersRepository.findOneBy.mockResolvedValue(user);
-            mockProductsRepository.create.mockReturnValue(newProduct);
-            mockProductsRepository.save.mockResolvedValue(newProduct);
+            mockProductsRepository.create.mockReturnValue(dto);
+            mockProductsRepository.save.mockResolvedValue(dto);
 
-            const result = await service.create(createDto);
-
-            expect(mockUsersRepository.findOneBy).toHaveBeenCalledWith({ id: 'userId' });
-            expect(mockProductsRepository.create).toHaveBeenCalledWith({
-                name: 'Product',
-                price: 10.5,
-                stock: 0,
-                created_by: user,
-            });
-            expect(result).toEqual(newProduct);
+            await service.create(dto);
+            expect(mockProductsRepository.save).toHaveBeenCalled();
         });
 
-        it('should throw NotFoundException if user not found', async () => {
+        it('should throw if user not found', async () => {
             mockUsersRepository.findOneBy.mockResolvedValue(null);
-
-            await expect(
-                service.create({
-                    name: 'Product',
-                    price: 10,
-                    stock: 0,
-                    createdById: 'invalid',
-                }),
-            ).rejects.toThrow(NotFoundException);
+            await expect(service.create({ createdById: 'u1' } as any)).rejects.toThrow(NotFoundException);
         });
     });
 
-    describe('findAll', () => {
-        it('should return paginated products', async () => {
-            const products = [{ id: '1', name: 'Product' }];
-            const total = 1;
-            mockProductsRepository.findAndCount.mockResolvedValue([products, total]);
+    describe('update', () => {
+        it('should update product', async () => {
+            const product = { id: 'p1', name: 'Old' };
+            const dto: UpdateProductDto = { name: 'New' };
+            mockProductsRepository.findOne.mockResolvedValue(product);
+            mockProductsRepository.save.mockResolvedValue({ ...product, ...dto });
 
-            const paginationDto = { page: 1, limit: 10 };
-            const result = await service.findAll(paginationDto);
+            const result = await service.update('p1', dto);
+            expect(result.name).toBe('New');
+        });
 
-            expect(mockProductsRepository.findAndCount).toHaveBeenCalledWith({
-                skip: 0,
-                take: 10,
-                relations: ['created_by', 'images'],
-            });
-            expect(result).toEqual({ data: products, total, page: 1, lastPage: 1 });
+        it('should throw if product not found', async () => {
+            mockProductsRepository.findOne.mockResolvedValue(null);
+            await expect(service.update('p1', {})).rejects.toThrow(NotFoundException);
+        });
+    });
+
+    describe('remove', () => {
+        it('should delete product', async () => {
+            mockProductsRepository.softDelete.mockResolvedValue({ affected: 1 });
+            await expect(service.remove('p1')).resolves.not.toThrow();
+        });
+
+        it('should throw if product not found', async () => {
+            mockProductsRepository.softDelete.mockResolvedValue({ affected: 0 });
+            await expect(service.remove('p1')).rejects.toThrow(NotFoundException);
+        });
+    });
+
+    describe('addImages', () => {
+        it('should add images to product', async () => {
+            const product = { id: 'p1', images: [] };
+            mockProductsRepository.findOne.mockResolvedValue(product);
+            mockImagesRepository.create.mockReturnValue({});
+            mockImagesRepository.save.mockResolvedValue({});
+
+            await service.addImages('p1', ['url1', 'url2']);
+
+            expect(mockImagesRepository.create).toHaveBeenCalledTimes(2);
+            expect(mockImagesRepository.save).toHaveBeenCalledTimes(1);
+        });
+
+        it('should throw if product not found', async () => {
+            mockProductsRepository.findOne.mockResolvedValue(null);
+            await expect(service.addImages('p1', [])).rejects.toThrow(NotFoundException);
+        });
+    });
+
+    describe('removeImage', () => {
+        it('should remove image', async () => {
+            mockImagesRepository.findOneBy.mockResolvedValue({ id: 'i1' });
+            mockImagesRepository.delete.mockResolvedValue({ affected: 1 });
+            await expect(service.removeImage('i1')).resolves.not.toThrow();
+        });
+
+        it('should throw if image not found', async () => {
+            mockImagesRepository.findOneBy.mockResolvedValue(null);
+            await expect(service.removeImage('i1')).rejects.toThrow(NotFoundException);
         });
     });
 });

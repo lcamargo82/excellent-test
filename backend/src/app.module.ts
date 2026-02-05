@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { LoggerModule } from 'nestjs-pino';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
@@ -16,6 +17,21 @@ import { ProductImage } from './products/entities/product-image.entity';
 
 @Module({
   imports: [
+    LoggerModule.forRoot({
+      pinoHttp: {
+        customProps: (req, res) => ({
+          context: 'HTTP',
+        }),
+        transport: {
+          target: 'pino-pretty',
+          options: {
+            singleLine: true,
+          },
+        },
+        // Secure sensitive headers
+        redact: ['req.headers.authorization', 'req.headers.cookie'],
+      },
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
     }),

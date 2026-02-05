@@ -3,11 +3,11 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { OrdersService } from './orders.service';
 import { Order } from './entities/order.entity';
-import { Client } from '@clients/entities/client.entity';
-import { Product } from '@products/entities/product.entity';
+import { Client } from '../clients/entities/client.entity';
+import { Product } from '../products/entities/product.entity';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
-const mockOrderRepository = { find: jest.fn(), findOne: jest.fn(), remove: jest.fn() };
+const mockOrderRepository = { find: jest.fn(), findOne: jest.fn(), remove: jest.fn(), findAndCount: jest.fn() };
 const mockClientRepository = {};
 const mockProductRepository = {};
 
@@ -38,6 +38,16 @@ describe('OrdersService', () => {
     });
 
     describe('create', () => {
+        let mockManager: any;
+
+        beforeEach(() => {
+            mockManager = {
+                findOne: jest.fn(),
+                save: jest.fn(),
+            };
+            mockDataSource.transaction.mockImplementation((cb) => cb(mockManager));
+        });
+
         it('should create an order successfully', async () => {
             const createDto = {
                 clientId: 'client-id',
@@ -46,44 +56,103 @@ describe('OrdersService', () => {
 
             const mockClient = { id: 'client-id' };
             const mockProduct = { id: 'prod-1', price: 10, stock: 5 };
-            const mockManager = {
-                findOne: jest.fn().mockImplementation((entity, options) => {
-                    if (entity === Client) return Promise.resolve(mockClient);
-                    if (entity === Product) return Promise.resolve(mockProduct);
-                    return null;
-                }),
-                save: jest.fn().mockImplementation((entityOrObject) => Promise.resolve(entityOrObject)),
-            };
+            const savedOrder = { id: 'order-id', total: 20 };
 
-            mockDataSource.transaction.mockImplementation((cb) => cb(mockManager));
+            mockManager.findOne.mockImplementation((entity: any) => {
+                if (entity === Client) return Promise.resolve(mockClient);
+                if (entity === Product) return Promise.resolve(mockProduct);
+                return null;
+            });
+            mockManager.save.mockImplementation((entityOrObject: any, data: any) => {
+                if (entityOrObject === Order) return Promise.resolve({ ...data, id: 'order-id' });
+                return Promise.resolve(entityOrObject);
+            });
 
             const result = await service.create(createDto);
 
             expect(mockManager.findOne).toHaveBeenCalledWith(Client, { where: { id: 'client-id' } });
             expect(mockManager.findOne).toHaveBeenCalledWith(Product, { where: { id: 'prod-1' } });
-            // Should decrease stock
+            // Stock should be deducted in memory before save
             expect(mockProduct.stock).toBe(3);
-            expect(result).toBeDefined();
+            expect(mockManager.save).toHaveBeenCalledWith(mockProduct);
+            expect(result).toEqual(expect.objectContaining({ id: 'order-id' }));
         });
 
-        it('should throw error if product has insufficient stock', async () => {
-            const createDto = {
-                clientId: 'client-id',
-                items: [{ productId: 'prod-1', quantity: 10 }],
-            };
+        it('should throw NotFoundException if client not found', async () => {
+            const createDto = { clientId: 'client-id', items: [] };
+            mockManager.findOne.mockResolvedValue(null);
 
-            const mockClient = { id: 'client-id' };
-            const mockProduct = { id: 'prod-1', price: 10, stock: 5 };
-            const mockManager = {
-                findOne: jest.fn().mockImplementation((entity) => {
-                    if (entity === Client) return Promise.resolve(mockClient);
-                    if (entity === Product) return Promise.resolve(mockProduct);
-                }),
-            };
+            await expect(service.create(createDto)).rejects.toThrow(NotFoundException);
+        });
 
+        it('should throw NotFoundException if product not found', async () => {
+            mockManager.findOne.mockImplementation((entity: any) => {
+                if (entity === Client) return Promise.resolve({ id: 'client' });
+                return null;
+            });
+
+            await expect(service.create({ clientId: 'c', items: [{ productId: 'p', quantity: 1 }] })).rejects.toThrow(NotFoundException);
+        });
+
+        it('should throw BadRequestException if insufficient stock', async () => {
+            const mockProduct = { id: 'prod-1', price: 10, stock: 1 };
+            mockManager.findOne.mockImplementation((entity: any) => {
+                if (entity === Client) return Promise.resolve({ id: 'client' });
+                if (entity === Product) return Promise.resolve(mockProduct);
+            });
+
+            await expect(service.create({ clientId: 'c', items: [{ productId: 'p', quantity: 5 }] })).rejects.toThrow(BadRequestException);
+        });
+    });
+
+    describe('findAll', () => {
+        it('should return paginated orders', async () => {
+            const result = { data: [], total: 0, page: 1, lastPage: 0 };
+            mockOrderRepository.findAndCount.mockResolvedValue([[], 0]);
+
+            expect(await service.findAll({ page: 1, limit: 10 })).toEqual(result);
+        });
+    });
+
+    describe('findOne', () => {
+        it('should return one order', async () => {
+            const order = { id: 'uuid' };
+            mockOrderRepository.findOne.mockResolvedValue(order);
+            expect(await service.findOne('uuid')).toEqual(order);
+        });
+    });
+
+    describe('remove', () => {
+        let mockManager: any;
+
+        beforeEach(() => {
+            mockManager = {
+                findOne: jest.fn(),
+                save: jest.fn(),
+                remove: jest.fn(),
+            };
             mockDataSource.transaction.mockImplementation((cb) => cb(mockManager));
+        });
 
-            await expect(service.create(createDto)).rejects.toThrow(BadRequestException);
+        it('should restore stock and remove order', async () => {
+            const mockProduct = { id: 'p1', stock: 10 };
+            const mockOrder = {
+                id: 'o1',
+                items: [{ product: mockProduct, quantity: 5 }]
+            };
+
+            mockManager.findOne.mockResolvedValue(mockOrder);
+
+            await service.remove('o1');
+
+            expect(mockProduct.stock).toBe(15); // 10 + 5
+            expect(mockManager.save).toHaveBeenCalledWith(Product, mockProduct);
+            expect(mockManager.remove).toHaveBeenCalledWith(Order, mockOrder);
+        });
+
+        it('should throw NotFoundException if order not found', async () => {
+            mockManager.findOne.mockResolvedValue(null);
+            await expect(service.remove('o1')).rejects.toThrow(NotFoundException);
         });
     });
 });
