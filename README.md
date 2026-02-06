@@ -16,6 +16,24 @@ Após clonar o repositório, configure as variáveis de ambiente copiando o arqu
 cp example.env .env
 ```
 
+## Instalação das Dependências
+
+Para instalar as dependências de ambos os projetos (Backend e Frontend), execute os seguintes comandos na raiz de cada projeto:
+
+### Backend
+
+```bash
+cd backend
+npm install
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+```
+
 ## Gerenciamento dos Containers
 
 ### Iniciar o ambiente
