@@ -18,20 +18,18 @@ cp example.env .env
 
 ## Instalação das Dependências
 
-Para instalar as dependências de ambos os projetos (Backend e Frontend), execute os seguintes comandos na raiz de cada projeto:
+Para instalar as dependências de ambos os projetos (Backend e Frontend) utilizando o Node.js dos containers, execute os seguintes comandos na raiz do projeto:
 
 ### Backend
 
 ```bash
-cd backend
-npm install
+docker-compose run --rm backend npm install
 ```
 
 ### Frontend
 
 ```bash
-cd frontend
-npm install
+docker-compose run --rm frontend npm install
 ```
 
 ## Gerenciamento dos Containers
