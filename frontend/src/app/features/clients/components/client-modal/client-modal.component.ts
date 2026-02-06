@@ -5,7 +5,6 @@ import { ClientsService } from '../../services/clients.service';
 import { IntegrationsService } from '../../../../core/services/integrations.service';
 import { ErrorHandlerService } from '../../../../core/services/error-handler.service';
 import { Client } from '../../models/client.model';
-import { AuthService } from '../../../../core/services/auth.service';
 import { NgxMaskDirective } from 'ngx-mask';
 import Swal from 'sweetalert2';
 
@@ -26,10 +25,11 @@ import Swal from 'sweetalert2';
               <form [formGroup]="clientForm" (ngSubmit)="save()">
                 <div class="mb-3">
                   <label class="form-label fw-bold">CNPJ</label>
-                  <div class="input-group">
+                   <div class="input-group">
                     <input type="text" class="form-control" formControlName="document"
                            mask="00.000.000/0000-00"
                            [class.is-invalid]="isFieldInvalid('document')"
+                           [readonly]="!!client"
                            (keyup)="onDocumentKeyUp()">
                     @if (isFetchingCnpj()) {
                       <span class="input-group-text">
@@ -153,7 +153,7 @@ export class ClientModalComponent implements OnChanges {
         if (data && data.razao_social) {
 
           const phone = data.ddd_telefone_1
-            ? `(${data.ddd_telefone_1.substring(0, 2)}) ${data.ddd_telefone_1.substring(2)}` // Attempt to format? Or just raw
+            ? `(${data.ddd_telefone_1.substring(0, 2)}) ${data.ddd_telefone_1.substring(2)}`
             : (data.estabelecimento?.ddd1 && data.estabelecimento?.telefone1
               ? `${data.estabelecimento.ddd1}${data.estabelecimento.telefone1}`
               : '');
@@ -173,19 +173,31 @@ export class ClientModalComponent implements OnChanges {
           });
         }
       },
-      error: () => {
+      error: (err) => {
         this.isFetchingCnpj.set(false);
+        console.error('Erro ao consultar CNPJ:', err);
+        Swal.fire({
+          icon: 'warning',
+          title: 'Atenção',
+          text: 'Não foi possível consultar os dados do CNPJ automaticamente. Verifique se o backend está rodando.',
+          timer: 3000,
+          showConfirmButton: false
+        });
       }
     });
   }
 
   ngOnChanges(changes: SimpleChanges) {
-    if (changes['client'] && this.client) {
-      this.clientForm.patchValue(this.client);
-      this.clientForm.get('document')?.disable(); // Block edit
-    } else if (changes['isOpen'] && this.isOpen && !this.client) {
-      this.clientForm.reset();
-      this.clientForm.get('document')?.enable(); // Enable for create
+    if (this.isOpen) {
+      if (this.client) {
+        // Edit Mode
+        this.clientForm.patchValue(this.client);
+        setTimeout(() => this.clientForm.get('document')?.disable(), 0);
+      } else if (changes['isOpen']) {
+        // Create Mode (Only reset if opening new)
+        this.clientForm.reset();
+        this.clientForm.get('document')?.enable();
+      }
     }
   }
 

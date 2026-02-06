@@ -22,8 +22,8 @@ export class OrdersService {
         return this.http.get<PaginatedResult<Order>>(this.apiUrl, { params });
     }
 
-    getOrder(id: string): Observable<Order> {
-        return this.http.get<Order>(`${this.apiUrl}/${id}`);
+    getOrder(id: string, options?: { context?: any }): Observable<Order> {
+        return this.http.get<Order>(`${this.apiUrl}/${id}`, options);
     }
 
     createOrder(order: CreateOrderDto): Observable<Order> {

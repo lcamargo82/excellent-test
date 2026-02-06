@@ -27,4 +27,12 @@ export class UsersService {
     updateRole(id: string, role: string): Observable<User> {
         return this.http.patch<User>(`${this.apiUrl}/${id}/role`, { role });
     }
+
+    updateUser(id: string, data: Partial<User> & { password?: string }): Observable<User> {
+        return this.http.patch<User>(`${this.apiUrl}/${id}`, data);
+    }
+
+    toggleActive(id: string): Observable<User> {
+        return this.http.patch<User>(`${this.apiUrl}/${id}/toggle-active`, {});
+    }
 }

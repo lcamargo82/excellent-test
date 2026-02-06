@@ -22,7 +22,6 @@ import Swal from 'sweetalert2';
             <div class="modal-body">
               <form [formGroup]="userForm">
                 
-                @if (!user) {
                   <div class="mb-3">
                     <label class="form-label">Nome</label>
                     <input type="text" class="form-control" formControlName="name" [class.is-invalid]="isFieldInvalid('name')">
@@ -34,13 +33,10 @@ import Swal from 'sweetalert2';
                     <div class="invalid-feedback">{{ getErrorMessage('email') }}</div>
                   </div>
                   <div class="mb-3">
-                    <label class="form-label">Senha</label>
+                    <label class="form-label">Senha @if(user){ <small class="text-muted">(Deixe em branco para manter)</small> }</label>
                     <input type="password" class="form-control" formControlName="password" [class.is-invalid]="isFieldInvalid('password')">
                      <div class="invalid-feedback">{{ getErrorMessage('password') }}</div>
                   </div>
-                } @else {
-                  <p class="text-muted">Editando permissões para: <strong>{{ user.name }}</strong></p>
-                }
 
                 <div class="mb-3">
                   <label class="form-label">Permissão (Role)</label>
@@ -85,11 +81,20 @@ export class UserModalComponent implements OnChanges {
       this.userForm.reset({ role: 'USER' });
 
       if (this.user) {
-        // Edit Mode: Only Role is editable (and relevant in this impl)
-        this.userForm.patchValue({ role: this.user.role });
-        this.userForm.get('name')?.clearValidators();
-        this.userForm.get('email')?.clearValidators();
+        // Edit Mode
+        this.userForm.patchValue({
+          name: this.user.name,
+          email: this.user.email,
+          role: this.user.role
+        });
+
+        // Name/Email required
+        this.userForm.get('name')?.setValidators(Validators.required);
+        this.userForm.get('email')?.setValidators([Validators.required, Validators.email]);
+
+        // Password optional in edit
         this.userForm.get('password')?.clearValidators();
+        this.userForm.get('password')?.setValidators([Validators.minLength(6)]);
       } else {
         // Create Mode: All required
         this.userForm.get('name')?.setValidators(Validators.required);
@@ -127,7 +132,12 @@ export class UserModalComponent implements OnChanges {
     let request$;
 
     if (this.user) {
-      request$ = this.usersService.updateRole(this.user.id, val.role);
+      // Remove password if empty to avoid hashing empty string
+      const updateData = { ...val };
+      if (!updateData.password) {
+        delete updateData.password;
+      }
+      request$ = this.usersService.updateUser(this.user.id, updateData);
     } else {
       request$ = this.usersService.createUser(val);
     }

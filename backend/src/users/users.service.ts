@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import * as bcrypt from 'bcrypt';
 
@@ -55,12 +56,53 @@ export class UsersService {
         return this.usersRepository.findOne({ where: { email }, select: ['id', 'email', 'password_hash', 'role', 'name'] });
     }
 
+    async update(id: string, updateUserDto: UpdateUserDto, adminUser?: User): Promise<User> {
+        const user = await this.findOne(id);
+        if (!user) {
+            throw new Error(`User with ID ${id} not found`);
+        }
+
+        if (updateUserDto.password) {
+            const salt = 10;
+            user.password_hash = await bcrypt.hash(updateUserDto.password, salt);
+        }
+
+        if (updateUserDto.name) {
+            user.name = updateUserDto.name;
+        }
+
+        if (updateUserDto.email) {
+            user.email = updateUserDto.email;
+        }
+
+        if (updateUserDto.role) {
+            user.role = updateUserDto.role;
+        }
+
+        if (adminUser) {
+            user.updated_by_user = adminUser;
+        }
+
+        return this.usersRepository.save(user);
+    }
+
     async updateRole(id: string, role: string, adminUser: User): Promise<User> {
         const user = await this.findOne(id);
         if (!user) {
             throw new Error(`User with ID ${id} not found`);
         }
         user.role = role;
+        user.updated_by_user = adminUser;
+        return this.usersRepository.save(user);
+    }
+
+    async toggleActive(id: string, adminUser: User): Promise<User> {
+        const user = await this.findOne(id);
+        if (!user) {
+            throw new Error(`User with ID ${id} not found`);
+        }
+        // Toggle the active state
+        user.is_active = !user.is_active;
         user.updated_by_user = adminUser;
         return this.usersRepository.save(user);
     }

@@ -19,10 +19,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
         const { httpAdapter } = this.httpAdapterHost;
         const ctx = host.switchToHttp();
 
-        const httpStatus =
+        let httpStatus =
             exception instanceof HttpException
                 ? exception.getStatus()
                 : HttpStatus.INTERNAL_SERVER_ERROR;
+
+        // Handle Postgres Unique Violation
+        if ((exception as any).code === '23505') {
+            httpStatus = HttpStatus.CONFLICT;
+        }
 
         const responseBody: any = {
             success: false,
@@ -42,6 +47,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
             } else {
                 responseBody.message = response;
             }
+        } else if (httpStatus === HttpStatus.CONFLICT) {
+            responseBody.message = 'Registro duplicado. Já existe um registro com estes dados.';
         }
 
         if (httpStatus === HttpStatus.INTERNAL_SERVER_ERROR) {

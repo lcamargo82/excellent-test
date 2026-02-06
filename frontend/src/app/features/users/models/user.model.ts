@@ -3,6 +3,7 @@ export interface User {
     name: string;
     email: string;
     role: string;
+    is_active: boolean; // Add active status
     created_at: string;
 }
 

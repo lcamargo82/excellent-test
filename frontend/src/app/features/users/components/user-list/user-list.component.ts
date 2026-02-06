@@ -5,6 +5,7 @@ import { UsersService } from '../../services/users.service';
 import { User } from '../../models/user.model';
 import { UserModalComponent } from '../user-modal/user-modal.component';
 import { AuthService } from '../../../../core/services/auth.service';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-user-list',
@@ -42,6 +43,7 @@ import { AuthService } from '../../../../core/services/auth.service';
                   <th class="ps-4">Nome</th>
                   <th>Email</th>
                   <th>Permissão</th>
+                  <th class="text-center">Status</th>
                   <th class="text-end pe-4">Ações</th>
                 </tr>
               </thead>
@@ -57,11 +59,27 @@ import { AuthService } from '../../../../core/services/auth.service';
                         {{ user.role }}
                       </span>
                     </td>
+                    <td class="text-center">
+                      <span class="badge rounded-pill" 
+                        [class.bg-success]="user.is_active"
+                        [class.bg-secondary]="!user.is_active">
+                        {{ user.is_active ? 'Ativo' : 'Inativo' }}
+                      </span>
+                    </td>
                     <td class="text-end pe-4">
-                      @if (user.id !== authService.currentUser()?.id) {
-                        <button class="btn btn-sm btn-outline-primary" (click)="editUser(user)" title="Editar Permissão">
-                          <i class="bi bi-pencil"></i>
-                        </button>
+                      @if (user.id !== authService.currentUser()?.sub) {
+                         @if (authService.currentUser()?.role === 'ADMIN') {
+                            <button class="btn btn-sm btn-outline-primary me-2" (click)="editUser(user)" title="Editar Permissão">
+                              <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm" 
+                                [class.btn-outline-danger]="user.is_active"
+                                [class.btn-outline-success]="!user.is_active"
+                                (click)="toggleActive(user)" 
+                                [title]="user.is_active ? 'Desativar Usuário' : 'Ativar Usuário'">
+                                <i class="bi" [class.bi-person-slash]="user.is_active" [class.bi-person-check]="!user.is_active"></i>
+                            </button>
+                         }
                       } @else {
                         <span class="badge bg-secondary">Você</span>
                       }
@@ -176,5 +194,32 @@ export class UserListComponent implements OnInit {
     if (saved) {
       this.loadUsers(this.currentPage());
     }
+  }
+
+  toggleActive(user: User) {
+    const action = user.is_active ? 'desativar' : 'ativar';
+    Swal.fire({
+      title: 'Tem certeza?',
+      text: `Deseja ${action} o usuário ${user.name}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: user.is_active ? '#d33' : '#28a745',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: `Sim, ${action}!`,
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        this.usersService.toggleActive(user.id).subscribe({
+          next: () => {
+            Swal.fire('Sucesso!', `Usuário ${action === 'ativar' ? 'ativado' : 'desativado'} com sucesso.`, 'success');
+            this.loadUsers(this.currentPage());
+          },
+          error: (err) => {
+            console.error(err);
+            Swal.fire('Erro!', 'Não foi possível alterar o status do usuário.', 'error');
+          }
+        });
+      }
+    });
   }
 }

@@ -123,8 +123,9 @@ describe('OrdersService', () => {
             const expectedFindOptions = {
                 skip: 0,
                 take: 10,
-                relations: ['client', 'items', 'items.product', 'client.created_by'],
-                order: { created_at: 'DESC' }
+                relations: ['client'],
+                order: { created_at: 'DESC' },
+                withDeleted: true
                 // No 'where' clause restricted to user
             };
 

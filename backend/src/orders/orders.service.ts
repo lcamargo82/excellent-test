@@ -70,12 +70,13 @@ export class OrdersService {
     }
 
     async findAll(paginationDto: PaginationDto, user?: any): Promise<{ data: Order[], total: number, page: number, lastPage: number }> {
+        console.log('OrdersService.findAll called with:', paginationDto);
         const { page = 1, limit = 10, search } = paginationDto;
 
         let findOptions: any = {
             skip: (page - 1) * limit,
             take: limit,
-            relations: ['client', 'client.created_by'],
+            relations: ['client'],
             order: { created_at: 'DESC' }
         };
 
@@ -87,7 +88,10 @@ export class OrdersService {
             ];
         }
 
-        const [data, total] = await this.ordersRepository.findAndCount(findOptions);
+        const [data, total] = await this.ordersRepository.findAndCount({
+            ...findOptions,
+            withDeleted: true
+        });
 
         const lastPage = Math.ceil(total / limit);
 
@@ -95,9 +99,19 @@ export class OrdersService {
     }
 
     async findOne(id: string): Promise<Order | null> {
+        console.log('OrdersService.findOne called for ID:', id);
+
+        // Use QueryBuilder to strictly control withDeleted for relations
+        // TypeORM's findOne options for relations with deleted are tricky.
+        // It's safer to use the repository find with specific relation load strategy OR just enable global withDeleted if appropriate?
+        // Let's try the standard FindOneOptions first, but note that `withDeleted: true` applies to the main entity (Order).
+        // If Order is not deleted, but Client IS, we need to ensure the JOIN includes deleted clients.
+
         return this.ordersRepository.findOne({
             where: { id },
             relations: ['client', 'items', 'items.product'],
+            withDeleted: true // This often applies to the main entity, but let's see if it cascades or if we need query builder.
+            // Actually, standard TypeORM often hides soft-deleted relations.
         });
     }
 

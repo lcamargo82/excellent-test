@@ -1,10 +1,15 @@
 import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { HttpContext } from '@angular/common/http';
+import { SKIP_LOADING } from '../../../../core/interceptors/loading.interceptor';
+import { finalize, tap } from 'rxjs/operators';
+import { timeout } from 'rxjs';
 import Swal from 'sweetalert2';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms'; // Import FormsModule
 import { OrdersService } from '../../services/orders.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { Order } from '../../models/order.model';
+import { PaginatedResult } from '../../../clients/models/client.model';
 import { OrderModalComponent } from '../order-modal/order-modal.component';
 
 @Component({
@@ -59,7 +64,7 @@ import { OrderModalComponent } from '../order-modal/order-modal.component';
                   @for (order of orders(); track order.id) {
                     <tr>
                       <td class="ps-4 text-muted small">#{{ order.id.substring(0, 8) }}</td>
-                      <td class="fw-bold text-dark">{{ order.client.name }}</td>
+                      <td class="fw-bold text-dark">{{ order.client?.name || 'Cliente Removido' }}</td>
                       <td class="fw-bold">{{ order.total | currency:'BRL' }}</td>
                       <td>
                         <span class="badge rounded-pill" 
@@ -71,8 +76,12 @@ import { OrderModalComponent } from '../order-modal/order-modal.component';
                       </td>
                       <td>{{ order.created_at | date:'dd/MM/yyyy HH:mm' }}</td>
                       <td class="text-end pe-4">
-                        <button class="btn btn-sm btn-outline-info me-2" (click)="viewOrder(order)" title="Detalhes">
-                          <i class="bi bi-eye"></i>
+                        <button class="btn btn-sm btn-outline-info me-2" (click)="viewOrder(order)" title="Detalhes" [disabled]="loadingOrderId() === order.id">
+                          @if (loadingOrderId() === order.id) {
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                          } @else {
+                            <i class="bi bi-eye"></i>
+                          }
                         </button>
                         @if (isAdmin()) {
                           <button class="btn btn-sm btn-outline-danger" (click)="deleteOrder(order)" title="Excluir">
@@ -100,11 +109,19 @@ import { OrderModalComponent } from '../order-modal/order-modal.component';
           </span>
           <nav>
             <ul class="pagination pagination-sm mb-0">
+
               <li class="page-item" [class.disabled]="currentPage() === 1">
-                <button class="page-link" (click)="loadOrders(currentPage() - 1)">Anterior</button>
+                <button class="page-link" (click)="loadOrders(currentPage() - 1)">
+                  <i class="bi bi-chevron-left"></i>
+                </button>
+              </li>
+              <li class="page-item active">
+                <span class="page-link">{{ currentPage() }}</span>
               </li>
               <li class="page-item" [class.disabled]="currentPage() === lastPage()">
-                <button class="page-link" (click)="loadOrders(currentPage() + 1)">Próxima</button>
+                <button class="page-link" (click)="loadOrders(currentPage() + 1)">
+                  <i class="bi bi-chevron-right"></i>
+                </button>
               </li>
             </ul>
           </nav>
@@ -136,6 +153,18 @@ export class OrderListComponent implements OnInit {
 
   ngOnInit() {
     this.loadOrders();
+    // Safety check: if loading takes more than 5s, force disable it to show error/empty state
+    setTimeout(() => {
+      if (this.isLoading()) {
+        console.warn('Force stopping loading spinner after 5s safety timeout');
+        this.isLoading.set(false);
+      }
+    }, 5000);
+  }
+
+  isOrdersArrayCheck() {
+    // Helper to debug signals in template
+    return Array.isArray(this.orders());
   }
 
   isLoading = signal<boolean>(false);
@@ -143,19 +172,34 @@ export class OrderListComponent implements OnInit {
   loadOrders(page: number = 1) {
     const search = this.searchQuery();
     this.isLoading.set(true);
-    this.ordersService.getOrders(page, 10, search).subscribe({
-      next: (res) => {
-        this.orders.set(res.data);
-        this.currentPage.set(res.page);
-        this.totalItems.set(res.total);
-        this.lastPage.set(res.lastPage);
-        this.isLoading.set(false);
-      },
-      error: (err) => {
-        console.error(err);
-        this.isLoading.set(false);
-      }
-    });
+    this.ordersService.getOrders(page, 10, search)
+      .pipe(
+        tap((res: PaginatedResult<Order>) => console.log('Pipe tap - Data received:', res)),
+        finalize(() => {
+          console.log('Pipe finalize - setting isLoading false');
+          this.isLoading.set(false);
+        })
+      )
+      .subscribe({
+        next: (res: PaginatedResult<Order>) => {
+          try {
+            if (!res || !res.data) {
+              throw new Error('Resposta inválida da API');
+            }
+            this.orders.set(res.data);
+            this.currentPage.set(res.page);
+            this.totalItems.set(res.total);
+            this.lastPage.set(res.lastPage);
+          } catch (e) {
+            console.error('Error processing orders response:', e);
+            Swal.fire('Erro', 'Erro ao processar dados dos pedidos.', 'error');
+          }
+        },
+        error: (err) => {
+          console.error('Error loading orders:', err);
+          Swal.fire('Erro', 'Não foi possível carregar os pedidos.', 'error');
+        }
+      });
   }
 
   onSearch(query: string) {
@@ -171,9 +215,45 @@ export class OrderListComponent implements OnInit {
     this.isModalOpen.set(true);
   }
 
+  loadingOrderId = signal<string | null>(null);
+
   viewOrder(order: Order) {
-    this.selectedOrder.set(order); // View mode - Modal needs to handle Read-Only
-    this.isModalOpen.set(true);
+    this.loadingOrderId.set(order.id);
+    console.log('Requesting full details for order:', order.id);
+
+    // Bypass global loading interceptor to use local button state
+    // We need to cast ordersService to accessing the HttpClient or use a direct call if getOrder doesn't support context args yet?
+    // Actually, getOrder takes (id) only. We need to modify the Service OR directly inject HttpClient here?
+    // Better practice: Add context param to service method or use context in service. 
+    // Let's modify the component to just call the service, but we'll need to update the service to accept options OR we can just hope the manual isLoadingDetails is enough if we remove the global spinner. 
+    // WAIT: I cannot pass context to getOrder without modifying the service. 
+    // Let's modify the SERVICE first in the next tool call. For now, I'll assume I'll update the service.
+
+    // Changing approach: I will update the service to accept options or expose the http call more flexibly.
+    // For now, let's just make sure the component logic is sound. We will update the service in the next step.
+
+    this.ordersService.getOrder(order.id, {
+      context: new HttpContext().set(SKIP_LOADING, true)
+    })
+      .pipe(
+        timeout(5000),
+        tap(res => console.log('Full order response:', res)),
+        finalize(() => this.loadingOrderId.set(null))
+      )
+      .subscribe({
+        next: (fullOrder: Order) => {
+          if (!fullOrder) {
+            throw new Error('Pedido retornou vazio.');
+          }
+          console.log('Setting selectedOrder:', fullOrder);
+          this.selectedOrder.set(fullOrder);
+          this.isModalOpen.set(true);
+        },
+        error: (err) => {
+          console.error('Error fetching full order details:', err);
+          Swal.fire('Erro', 'Não foi possível carregar os detalhes do pedido.', 'error');
+        }
+      });
   }
 
   deleteOrder(order: Order) {

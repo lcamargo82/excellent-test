@@ -8,6 +8,14 @@ Os projetos NestJS (backend) e Angular (frontend) já foram inicializados.
 - Docker
 - Docker Compose
 
+## Configuração Inicial
+
+Após clonar o repositório, configure as variáveis de ambiente copiando o arquivo de exemplo:
+
+```bash
+cp example.env .env
+```
+
 ## Gerenciamento dos Containers
 
 ### Iniciar o ambiente

@@ -86,11 +86,19 @@ import { NgxMaskPipe } from 'ngx-mask';
           </span>
           <nav>
             <ul class="pagination pagination-sm mb-0">
+
               <li class="page-item" [class.disabled]="currentPage() === 1">
-                <button class="page-link" (click)="loadClients(currentPage() - 1)">Anterior</button>
+                <button class="page-link" (click)="loadClients(currentPage() - 1)">
+                  <i class="bi bi-chevron-left"></i>
+                </button>
+              </li>
+              <li class="page-item active">
+                <span class="page-link">{{ currentPage() }}</span>
               </li>
               <li class="page-item" [class.disabled]="currentPage() === lastPage()">
-                <button class="page-link" (click)="loadClients(currentPage() + 1)">Próxima</button>
+                <button class="page-link" (click)="loadClients(currentPage() + 1)">
+                  <i class="bi bi-chevron-right"></i>
+                </button>
               </li>
             </ul>
           </nav>

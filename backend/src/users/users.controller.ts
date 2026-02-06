@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request }
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -38,5 +39,23 @@ export class UsersController {
     @ApiOperation({ summary: 'Update user role (Admin only)' })
     updateRole(@Param('id') id: string, @Body('role') role: string, @Request() req) {
         return this.usersService.updateRole(id, role, req.user);
+    }
+
+    @Patch(':id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN')
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Update user (Admin only)' })
+    update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @Request() req) {
+        return this.usersService.update(id, updateUserDto, req.user);
+    }
+
+    @Patch(':id/toggle-active')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN')
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Activate/Deactivate user (Admin only)' })
+    toggleActive(@Param('id') id: string, @Request() req) {
+        return this.usersService.toggleActive(id, req.user);
     }
 }

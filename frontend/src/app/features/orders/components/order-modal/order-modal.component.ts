@@ -38,8 +38,8 @@ import Swal from 'sweetalert2';
                   <div class="row mb-4">
                     <div class="col-md-6">
                       <h6 class="text-uppercase text-muted small fw-bold">Cliente</h6>
-                      <p class="fs-5 fw-bold">{{ order.client.name }}</p>
-                      <p class="mb-1"><i class="bi bi-envelope me-2"></i>{{ order.client.email }}</p>
+                      <p class="fs-5 fw-bold">{{ order.client?.name || 'Cliente não encontrado' }}</p>
+                      <p class="mb-1"><i class="bi bi-envelope me-2"></i>{{ order.client?.email || 'Sem e-mail' }}</p>
                     </div>
                     <div class="col-md-6 text-end">
                       <h6 class="text-uppercase text-muted small fw-bold">Status</h6>
@@ -56,16 +56,20 @@ import Swal from 'sweetalert2';
                   <div class="card border-0 shadow-sm">
                     <div class="card-header bg-white fw-bold">Itens do Pedido</div>
                     <ul class="list-group list-group-flush">
-                      @for (item of order.items; track item.id) {
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                          <div>
-                            <span class="fw-bold">{{ item.product.name }}</span>
-                            <div class="text-muted small">
-                              {{ item.quantity }} x {{ item.price | currency:'BRL' }}
+                      @if (order.items && order.items.length > 0) {
+                        @for (item of order.items; track item.id) {
+                          <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                              <span class="fw-bold">{{ item.product?.name || 'Produto indisponível' }}</span>
+                              <div class="text-muted small">
+                                {{ item.quantity }} x {{ item.price | currency:'BRL' }}
+                              </div>
                             </div>
-                          </div>
-                          <span class="fw-bold">{{ (item.quantity * item.price) | currency:'BRL' }}</span>
-                        </li>
+                            <span class="fw-bold">{{ (item.quantity * item.price) | currency:'BRL' }}</span>
+                          </li>
+                        }
+                      } @else {
+                        <li class="list-group-item text-center text-muted py-3">Nenhum item encontrado.</li>
                       }
                     </ul>
                     <div class="card-footer bg-white text-end">
@@ -268,6 +272,7 @@ export class OrderModalComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['isOpen'] && this.isOpen) {
+      console.log('OrderModal Opened. Order Input:', this.order);
       if (!this.order) {
         // Create Mode - Reset
         this.clientIdControl.reset();

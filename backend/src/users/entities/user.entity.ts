@@ -37,6 +37,10 @@ export class User {
     @Column({ type: 'varchar', length: 20, default: 'USER' })
     role: string;
 
+    @ApiProperty({ default: true })
+    @Column({ type: 'boolean', default: true })
+    is_active: boolean;
+
     // Audit columns
     @ApiProperty({ type: () => User })
     @ManyToOne(() => User)
