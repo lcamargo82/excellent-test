@@ -92,17 +92,56 @@ export class ClientModalComponent implements OnChanges {
     name: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
     phone: ['', Validators.required],
-    document: ['', [Validators.required, Validators.minLength(14)]]
+    document: ['', [Validators.required, Validators.minLength(14), this.cnpjValidator]]
   });
 
+  cnpjValidator(control: any) {
+    const value = control.value;
+    if (!value) return null;
 
+    const cnpj = value.replace(/[^\d]+/g, '');
+    if (cnpj.length !== 14) return { invalidCnpj: true };
+
+    if (/^(\d)\1+$/.test(cnpj)) return { invalidCnpj: true };
+
+    let tamanho = cnpj.length - 2
+    let numeros = cnpj.substring(0, tamanho);
+    let digitos = cnpj.substring(tamanho);
+    let soma = 0;
+    let pos = tamanho - 7;
+
+    for (let i = tamanho; i >= 1; i--) {
+      soma += parseInt(numeros.charAt(tamanho - i)) * pos--;
+      if (pos < 2) pos = 9;
+    }
+
+    let resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
+    if (resultado !== parseInt(digitos.charAt(0))) return { invalidCnpj: true };
+
+    tamanho = tamanho + 1;
+    numeros = cnpj.substring(0, tamanho);
+    soma = 0;
+    pos = tamanho - 7;
+
+    for (let i = tamanho; i >= 1; i--) {
+      soma += parseInt(numeros.charAt(tamanho - i)) * pos--;
+      if (pos < 2) pos = 9;
+    }
+
+    resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
+    if (resultado !== parseInt(digitos.charAt(1))) return { invalidCnpj: true };
+
+    return null;
+  }
 
   onDocumentKeyUp() {
     const val = this.clientForm.get('document')?.value || '';
     const cleanVal = val.replace(/\D/g, '');
 
     if (cleanVal.length === 14) {
-      this.fetchCnpj(cleanVal);
+      if (!this.clientForm.get('document')?.hasError('invalidCnpj')) {
+        this.fetchCnpj(cleanVal);
+      }
     }
   }
 
@@ -112,10 +151,19 @@ export class ClientModalComponent implements OnChanges {
       next: (data) => {
         this.isFetchingCnpj.set(false);
         if (data && data.razao_social) {
+
+          const phone = data.ddd_telefone_1
+            ? `(${data.ddd_telefone_1.substring(0, 2)}) ${data.ddd_telefone_1.substring(2)}` // Attempt to format? Or just raw
+            : (data.estabelecimento?.ddd1 && data.estabelecimento?.telefone1
+              ? `${data.estabelecimento.ddd1}${data.estabelecimento.telefone1}`
+              : '');
+
           this.clientForm.patchValue({
             name: data.razao_social,
-            email: data.estabelecimento.email || this.clientForm.get('email')?.value
+            email: data.estabelecimento?.email || this.clientForm.get('email')?.value,
+            phone: phone || this.clientForm.get('phone')?.value
           });
+
           Swal.fire({
             icon: 'info',
             title: 'CNPJ Identificado',
@@ -134,8 +182,10 @@ export class ClientModalComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges) {
     if (changes['client'] && this.client) {
       this.clientForm.patchValue(this.client);
+      this.clientForm.get('document')?.disable(); // Block edit
     } else if (changes['isOpen'] && this.isOpen && !this.client) {
       this.clientForm.reset();
+      this.clientForm.get('document')?.enable(); // Enable for create
     }
   }
 
@@ -152,6 +202,7 @@ export class ClientModalComponent implements OnChanges {
     if (control.hasError('required')) return 'Campo obrigatório.';
     if (control.hasError('email')) return 'Email inválido.';
     if (control.hasError('minlength')) return `Mínimo de ${control.getError('minlength').requiredLength} caracteres.`;
+    if (control.hasError('invalidCnpj')) return 'CNPJ inválido.';
 
     return 'Campo inválido.';
   }

@@ -7,6 +7,8 @@ import { ProductImage } from './entities/product-image.entity';
 import { Product } from './entities/product.entity';
 import { User } from '../users/entities/user.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class ProductsService {
@@ -114,12 +116,56 @@ export class ProductsService {
         if (!image) {
             throw new NotFoundException(`Image with ID ${imageId} not found`);
         }
+
+        // Extract filename and delete from filesystem
+        try {
+            // URL format: /uploads/products/xyz.jpg
+            const filename = image.url.split('/').pop();
+            if (filename) {
+                const filePath = path.join(process.cwd(), 'uploads', 'products', filename);
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
+            }
+        } catch (error) {
+            console.error(`Failed to delete file for image ${imageId}:`, error);
+            // Continue to delete from DB even if file deletion fails
+        }
+
         await this.imagesRepository.delete(imageId);
     }
 
     async remove(id: string): Promise<void> {
+        // Find product with images to delete files
+        const product = await this.productsRepository.findOne({
+            where: { id },
+            relations: ['images']
+        });
+
+        if (!product) {
+            throw new NotFoundException(`Product with ID ${id} not found`);
+        }
+
+        // Delete all physical image files
+        if (product.images && product.images.length > 0) {
+            product.images.forEach(image => {
+                try {
+                    const filename = image.url.split('/').pop();
+                    if (filename) {
+                        const filePath = path.join(process.cwd(), 'uploads', 'products', filename);
+                        if (fs.existsSync(filePath)) {
+                            fs.unlinkSync(filePath);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Failed to delete file for image ${image.id}:`, error);
+                }
+            });
+        }
+
         const result = await this.productsRepository.softDelete(id);
         if (result.affected === 0) {
+            // Should not happen as we found it above, but good practice
             throw new NotFoundException(`Product with ID ${id} not found`);
         }
     }

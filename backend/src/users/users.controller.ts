@@ -21,8 +21,12 @@ export class UsersController {
     }
 
     @Get()
-    @ApiOperation({ summary: 'List all users' })
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN')
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'List all users (Admin only)' })
     @ApiResponse({ status: 200, description: 'Return all users.' })
+    @ApiResponse({ status: 403, description: 'Forbidden.' })
     findAll() {
         return this.usersService.findAll();
     }

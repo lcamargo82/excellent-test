@@ -75,7 +75,7 @@ export class OrdersService {
         let findOptions: any = {
             skip: (page - 1) * limit,
             take: limit,
-            relations: ['client', 'items', 'items.product', 'client.created_by'],
+            relations: ['client', 'client.created_by'],
             order: { created_at: 'DESC' }
         };
 

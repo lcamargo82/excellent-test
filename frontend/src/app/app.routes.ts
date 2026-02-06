@@ -7,18 +7,25 @@ import { OrderListComponent } from './features/orders/components/order-list/orde
 
 import { MainLayoutComponent } from './core/layout/main-layout.component';
 import { UserListComponent } from './features/users/components/user-list/user-list.component';
+import { authGuard } from './core/guards/auth.guard';
+import { adminGuard } from './core/guards/admin.guard';
 
 export const routes: Routes = [
     { path: 'login', component: LoginComponent },
     {
         path: '',
         component: MainLayoutComponent,
+        canActivate: [authGuard],
         children: [
             { path: 'dashboard', component: DashboardComponent },
             { path: 'clients', component: ClientListComponent },
             { path: 'products', component: ProductListComponent },
             { path: 'orders', component: OrderListComponent },
-            { path: 'users', component: UserListComponent },
+            {
+                path: 'users',
+                component: UserListComponent,
+                canActivate: [adminGuard]
+            },
             { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
         ]
     },

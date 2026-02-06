@@ -193,12 +193,22 @@ export class ProductModalComponent implements OnChanges {
       if (result.isConfirmed) {
         this.productService.deleteImage(imageId).subscribe({
           next: () => {
-            if (this.product) {
-              this.product.images = this.product.images.filter(i => i.id !== imageId);
+            if (this.product && this.product.images) {
+              // Creating a new array reference triggers change detection more reliably in some contexts
+              this.product.images = [...this.product.images.filter(i => i.id !== imageId)];
             }
-            Swal.fire('Sucesso', 'Imagem removida.', 'success');
+            Swal.fire({
+              title: 'Sucesso',
+              text: 'Imagem removida.',
+              icon: 'success',
+              timer: 1500,
+              showConfirmButton: false
+            });
           },
-          error: () => Swal.fire('Erro', 'Falha ao remover imagem.', 'error')
+          error: (err) => {
+            this.errorHandler.getErrorMessage(err); // Just to log/process
+            Swal.fire('Erro', 'Falha ao remover imagem.', 'error');
+          }
         });
       }
     });

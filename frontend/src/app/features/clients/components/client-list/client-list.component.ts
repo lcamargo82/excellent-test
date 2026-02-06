@@ -45,7 +45,9 @@ import { NgxMaskPipe } from 'ngx-mask';
                   <th>CNPJ</th>
                   <th>Email</th>
                   <th>Telefone</th>
-                  <th class="text-end pe-4">Ações</th>
+                  @if (isAdmin()) {
+                    <th class="text-end pe-4">Ações</th>
+                  }
                 </tr>
               </thead>
               <tbody>
@@ -55,18 +57,16 @@ import { NgxMaskPipe } from 'ngx-mask';
                     <td>{{ client.document | mask: '00.000.000/0000-00' }}</td>
                     <td>{{ client.email }}</td>
                     <td>{{ client.phone | mask: '(00) 0000-0000 || (00) 00000-0000' }}</td>
-                    <td class="text-end pe-4">
-                      @if (isAdmin()) {
+                    @if (isAdmin()) {
+                      <td class="text-end pe-4">
                         <button class="btn btn-sm btn-outline-primary me-2" (click)="openModal(client)" title="Editar">
                           <i class="bi bi-pencil"></i>
                         </button>
                         <button class="btn btn-sm btn-outline-danger" (click)="deleteClient(client)" title="Excluir">
                           <i class="bi bi-trash"></i>
                         </button>
-                      } @else {
-                        <span class="text-muted small">Sem ações</span>
-                      }
-                    </td>
+                      </td>
+                    }
                   </tr>
                 } @empty {
                   <tr>

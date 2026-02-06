@@ -75,6 +75,9 @@ export class ClientsService {
             throw new NotFoundException(`Client with ID ${id} not found`);
         }
 
+        // Prevent document (CNPJ) update
+        delete (updateClientDto as any).document;
+
         const { createdById, ...updateData } = updateClientDto;
 
         if (createdById) {

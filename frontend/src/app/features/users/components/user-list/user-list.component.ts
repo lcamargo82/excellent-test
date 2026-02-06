@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { UsersService } from '../../services/users.service';
 import { User } from '../../models/user.model';
 import { UserModalComponent } from '../user-modal/user-modal.component';
+import { AuthService } from '../../../../core/services/auth.service';
 
 @Component({
   selector: 'app-user-list',
@@ -57,9 +58,13 @@ import { UserModalComponent } from '../user-modal/user-modal.component';
                       </span>
                     </td>
                     <td class="text-end pe-4">
-                      <button class="btn btn-sm btn-outline-primary" (click)="editUser(user)" title="Editar Permissão">
-                        <i class="bi bi-pencil"></i>
-                      </button>
+                      @if (user.id !== authService.currentUser()?.id) {
+                        <button class="btn btn-sm btn-outline-primary" (click)="editUser(user)" title="Editar Permissão">
+                          <i class="bi bi-pencil"></i>
+                        </button>
+                      } @else {
+                        <span class="badge bg-secondary">Você</span>
+                      }
                     </td>
                   </tr>
                 } @empty {
@@ -112,6 +117,7 @@ import { UserModalComponent } from '../user-modal/user-modal.component';
 })
 export class UserListComponent implements OnInit {
   private usersService = inject(UsersService);
+  authService = inject(AuthService);
 
   users = signal<User[]>([]);
   totalItems = signal<number>(0);

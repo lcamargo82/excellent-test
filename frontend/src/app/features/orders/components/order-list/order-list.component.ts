@@ -46,37 +46,48 @@ import { OrderModalComponent } from '../order-modal/order-modal.component';
                 </tr>
               </thead>
               <tbody>
-                @for (order of orders(); track order.id) {
+                @if (isLoading()) {
                   <tr>
-                    <td class="ps-4 text-muted small">#{{ order.id.substring(0, 8) }}</td>
-                    <td class="fw-bold text-dark">{{ order.client.name }}</td>
-                    <td class="fw-bold">{{ order.total | currency:'BRL' }}</td>
-                    <td>
-                      <span class="badge rounded-pill" 
-                        [class.bg-warning]="order.status === 'PENDING'"
-                        [class.bg-success]="order.status === 'COMPLETED'"
-                        [class.bg-danger]="order.status === 'CANCELED'">
-                        {{ order.status }}
-                      </span>
+                    <td colspan="6" class="text-center py-5">
+                      <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                      </div>
+                      <p class="mt-2 text-muted">Carregando pedidos...</p>
                     </td>
-                    <td>{{ order.created_at | date:'dd/MM/yyyy HH:mm' }}</td>
-                    <td class="text-end pe-4">
-                      <button class="btn btn-sm btn-outline-info me-2" (click)="viewOrder(order)" title="Detalhes">
-                        <i class="bi bi-eye"></i>
-                      </button>
-                      @if (isAdmin()) {
-                        <button class="btn btn-sm btn-outline-danger" (click)="deleteOrder(order)" title="Excluir">
-                          <i class="bi bi-trash"></i>
+                  </tr>
+                } @else {
+                  @for (order of orders(); track order.id) {
+                    <tr>
+                      <td class="ps-4 text-muted small">#{{ order.id.substring(0, 8) }}</td>
+                      <td class="fw-bold text-dark">{{ order.client.name }}</td>
+                      <td class="fw-bold">{{ order.total | currency:'BRL' }}</td>
+                      <td>
+                        <span class="badge rounded-pill" 
+                          [class.bg-warning]="order.status === 'PENDING'"
+                          [class.bg-success]="order.status === 'COMPLETED'"
+                          [class.bg-danger]="order.status === 'CANCELED'">
+                          {{ order.status }}
+                        </span>
+                      </td>
+                      <td>{{ order.created_at | date:'dd/MM/yyyy HH:mm' }}</td>
+                      <td class="text-end pe-4">
+                        <button class="btn btn-sm btn-outline-info me-2" (click)="viewOrder(order)" title="Detalhes">
+                          <i class="bi bi-eye"></i>
                         </button>
-                      }
-                    </td>
-                  </tr>
-                } @empty {
-                  <tr>
-                    <td colspan="6" class="text-center py-5 text-muted">
-                      Nenhum pedido encontrado.
-                    </td>
-                  </tr>
+                        @if (isAdmin()) {
+                          <button class="btn btn-sm btn-outline-danger" (click)="deleteOrder(order)" title="Excluir">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        }
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="6" class="text-center py-5 text-muted">
+                        Nenhum pedido encontrado.
+                      </td>
+                    </tr>
+                  }
                 }
               </tbody>
             </table>
@@ -127,16 +138,23 @@ export class OrderListComponent implements OnInit {
     this.loadOrders();
   }
 
+  isLoading = signal<boolean>(false);
+
   loadOrders(page: number = 1) {
     const search = this.searchQuery();
+    this.isLoading.set(true);
     this.ordersService.getOrders(page, 10, search).subscribe({
       next: (res) => {
         this.orders.set(res.data);
         this.currentPage.set(res.page);
         this.totalItems.set(res.total);
         this.lastPage.set(res.lastPage);
+        this.isLoading.set(false);
       },
-      error: (err) => console.error(err)
+      error: (err) => {
+        console.error(err);
+        this.isLoading.set(false);
+      }
     });
   }
 

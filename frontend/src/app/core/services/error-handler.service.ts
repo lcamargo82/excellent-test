@@ -10,6 +10,12 @@ export class ErrorHandlerService {
         if (error.error?.message) {
             return error.error.message;
         }
+        if (typeof error.error === 'string') {
+            return error.error;
+        }
+        if (error.message) {
+            return error.message;
+        }
         return 'Ocorreu um erro inesperado. Tente novamente.';
     }
 

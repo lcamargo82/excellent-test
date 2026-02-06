@@ -23,13 +23,11 @@ import { AuthService } from '../services/auth.service';
                 <i class="bi bi-speedometer2 me-1"></i> Dashboard
               </a>
             </li>
-            @if (authService.hasRole('ADMIN')) {
-              <li class="nav-item">
-                <a class="nav-link" routerLink="/clients" routerLinkActive="active">
-                  <i class="bi bi-people me-1"></i> Clientes
-                </a>
-              </li>
-            }
+            <li class="nav-item">
+              <a class="nav-link" routerLink="/clients" routerLinkActive="active">
+                <i class="bi bi-people me-1"></i> Clientes
+              </a>
+            </li>
             <li class="nav-item">
               <a class="nav-link" routerLink="/products" routerLinkActive="active">
                 <i class="bi bi-box-seam me-1"></i> Produtos
